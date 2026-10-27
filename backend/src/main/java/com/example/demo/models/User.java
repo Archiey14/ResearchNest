@@ -1,5 +1,6 @@
 package com.example.demo.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -22,6 +23,22 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(length = 20)
+    private String authProvider = "LOCAL";
+
+    @JsonIgnore
+    @Column(unique = true, length = 100)
+    private String googleId;
+
+    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(length = 64)
+    private String resetTokenHash;
+
+    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private LocalDateTime resetTokenExpiry;
+
     private String institution = "Stanford University";
 
     private String department = "Computer Science & AI Lab";
@@ -37,6 +54,7 @@ public class User {
         this.name = name;
         this.email = email;
         this.password = password;
+        this.authProvider = "LOCAL";
         if (institution != null && !institution.isBlank()) {
             this.institution = institution;
         }
@@ -100,6 +118,38 @@ public class User {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getAuthProvider() {
+        return authProvider != null ? authProvider : "LOCAL";
+    }
+
+    public void setAuthProvider(String authProvider) {
+        this.authProvider = authProvider != null ? authProvider : "LOCAL";
+    }
+
+    public String getGoogleId() {
+        return googleId;
+    }
+
+    public void setGoogleId(String googleId) {
+        this.googleId = googleId;
+    }
+
+    public String getResetTokenHash() {
+        return resetTokenHash;
+    }
+
+    public void setResetTokenHash(String resetTokenHash) {
+        this.resetTokenHash = resetTokenHash;
+    }
+
+    public LocalDateTime getResetTokenExpiry() {
+        return resetTokenExpiry;
+    }
+
+    public void setResetTokenExpiry(LocalDateTime resetTokenExpiry) {
+        this.resetTokenExpiry = resetTokenExpiry;
     }
 
     public LocalDateTime getCreatedAt() {
