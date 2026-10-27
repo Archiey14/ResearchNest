@@ -20,7 +20,8 @@ public interface PaperRepository extends JpaRepository<Paper, Long> {
            "LOWER(p.authors) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.field) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.topicTag) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(p.venue) LIKE LOWER(CONCAT('%', :query, '%'))")
+           "LOWER(p.venue) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(p.abstractText) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Paper> searchAcrossFields(@Param("query") String query);
 
     List<Paper> findTop5ByOrderByCitationsDesc();

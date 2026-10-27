@@ -13,6 +13,7 @@ import {
   User,
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { authService } from "../services/authService.js";
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
@@ -56,6 +57,9 @@ export default function AuthPage() {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+    if (notice) {
+      setNotice(null);
+    }
   }
 
   function validateForm() {
@@ -76,7 +80,7 @@ export default function AuthPage() {
     return validationErrors;
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     setNotice(null);
     const validationErrors = validateForm();
@@ -89,14 +93,28 @@ export default function AuthPage() {
     setErrors({});
     setIsSubmitting(true);
 
-    // Provide realistic UI feedback and transition to workspace
-    setTimeout(() => {
-      setIsSubmitting(false);
-      localStorage.setItem("researchnest_authenticated", "true");
+    try {
+      if (mode === "register") {
+        await authService.register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        });
+      } else {
+        await authService.login(formData.email, formData.password);
+      }
+
       const nextParam = searchParams.get("next");
       const target = nextParam ? decodeURIComponent(nextParam) : "/workspace";
       navigate(target);
-    }, 450);
+    } catch (err) {
+      setNotice({
+        type: "error",
+        text: err.message || "Authentication failed. Please check your details and try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const isRegister = mode === "register";
@@ -349,21 +367,52 @@ export default function AuthPage() {
             </button>
           </form>
 
-          {/* Validation & Contract Notice Banner */}
+          {/* Live Backend Connection Status & Alerts */}
           <div
-            className={`auth-notice ${notice ? "auth-notice-active" : "auth-notice-static"}`}
+            className={`auth-notice ${notice ? "auth-notice-active auth-notice-error" : "auth-notice-static"}`}
             aria-live="polite"
           >
-            <Info className="auth-notice-icon" size={16} aria-hidden="true" />
+            {notice ? (
+              <AlertCircle className="auth-notice-icon" size={16} aria-hidden="true" />
+            ) : (
+              <CheckCircle2 className="auth-notice-icon text-success" size={16} aria-hidden="true" />
+            )}
             <div className="auth-notice-text">
               {notice ? (
-                <span>{notice.message}</span>
+                <span>{notice.text || notice.message}</span>
               ) : (
-                <span>
-                  Backend authentication endpoints are not connected yet. Form
-                  submissions validate inputs client-side without creating live
-                  sessions.
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <span>
+                    Connected to Spring Boot API. Live MySQL authentication enabled.
+                  </span>
+                  {!isRegister && (
+                    <button
+                      type="button"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--color-primary-600, #7c3aed)",
+                        cursor: "pointer",
+                        padding: 0,
+                        textAlign: "left",
+                        fontSize: "0.82rem",
+                        textDecoration: "underline",
+                        fontWeight: 500,
+                      }}
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          email: "alex.chen@stanford.edu",
+                          password: "Password123!",
+                        });
+                        setErrors({});
+                        setNotice(null);
+                      }}
+                    >
+                      Fill demo account (alex.chen@stanford.edu)
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

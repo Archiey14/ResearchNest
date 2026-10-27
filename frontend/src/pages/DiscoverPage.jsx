@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
   BookOpen,
@@ -18,6 +18,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import PaperModal from "../components/PaperModal.jsx";
 import { mockPapers, trendingTopics } from "../data/mockPapers.js";
+import { papersService } from "../services/papersService.js";
 
 const quickPrompts = [
   "State Space Models",
@@ -36,12 +37,33 @@ export default function DiscoverPage() {
   const [sortBy, setSortBy] = useState("relevance");
   const [openAccessOnly, setOpenAccessOnly] = useState(false);
   const [yearFilter, setYearFilter] = useState("all");
+  const [papers, setPapers] = useState(mockPapers);
+  const [isLoading, setIsLoading] = useState(false);
   const [savedIds, setSavedIds] = useState(() => {
     const stored = localStorage.getItem("researchnest_saved_ids");
     return stored ? new Set(JSON.parse(stored)) : new Set(["paper-1", "paper-4", "paper-8"]);
   });
   const [activeModalPaper, setActiveModalPaper] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+    papersService
+      .getPapers({ search: searchQuery, field: selectedField })
+      .then((data) => {
+        if (active && data) {
+          setPapers(data);
+        }
+      })
+      .catch((err) => console.warn("Failed to load papers:", err))
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [searchQuery, selectedField]);
 
   function toggleSavePaper(id) {
     setSavedIds((prev) => {
@@ -88,7 +110,7 @@ export default function DiscoverPage() {
 
   // Filter and sort papers
   const filteredPapers = useMemo(() => {
-    let list = [...mockPapers];
+    let list = [...papers];
 
     // Field filter
     if (selectedField && selectedField !== "all") {

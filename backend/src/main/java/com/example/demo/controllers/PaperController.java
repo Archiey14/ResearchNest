@@ -29,12 +29,15 @@ public class PaperController {
     @GetMapping
     public ResponseEntity<List<Paper>> getPapers(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) String field) {
-        if (search != null && !search.trim().isEmpty()) {
-            return ResponseEntity.ok(paperService.searchPapers(search));
+        String searchTerm = search != null ? search : (query != null ? query : q);
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            return ResponseEntity.ok(paperService.searchPapers(searchTerm.trim()));
         }
         if (field != null && !field.trim().isEmpty()) {
-            return ResponseEntity.ok(paperService.getPapersByField(field));
+            return ResponseEntity.ok(paperService.getPapersByField(field.trim()));
         }
         return ResponseEntity.ok(paperService.getAllPapers());
     }
@@ -45,8 +48,15 @@ public class PaperController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Paper>> searchPapers(@RequestParam(name = "query", defaultValue = "") String query) {
-        return ResponseEntity.ok(paperService.searchPapers(query));
+    public ResponseEntity<List<Paper>> searchPapers(
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "search", required = false) String search) {
+        String searchTerm = query != null ? query : (q != null ? q : search);
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return ResponseEntity.ok(paperService.getAllPapers());
+        }
+        return ResponseEntity.ok(paperService.searchPapers(searchTerm.trim()));
     }
 
     @GetMapping("/trending")

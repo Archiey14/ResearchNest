@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { mockStacks } from "../data/mockPapers.js";
+import { authService } from "../services/authService.js";
 
 const notificationsList = [
   {
@@ -52,6 +53,7 @@ const notificationsList = [
 export default function AppLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(() => authService.getStoredUser());
   const [quickSearch, setQuickSearch] = useState("");
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -59,6 +61,12 @@ export default function AppLayout() {
   const [newStackName, setNewStackName] = useState("");
   const [newStackDesc, setNewStackDesc] = useState("");
   const [savedCount, setSavedCount] = useState(24);
+
+  useEffect(() => {
+    authService.getCurrentUser().then((user) => {
+      if (user) setCurrentUser(user);
+    });
+  }, []);
 
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -145,9 +153,18 @@ export default function AppLayout() {
   }
 
   function handleSignOut() {
-    localStorage.removeItem("researchnest_session");
-    navigate("/");
+    authService.logout();
+    navigate("/login");
   }
+
+  const initials = currentUser?.name
+    ? currentUser.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "AC";
 
   const navTabs = [
     { label: "Dashboard", to: "/workspace", icon: LayoutDashboard },
@@ -293,20 +310,22 @@ export default function AppLayout() {
                 tabIndex={0}
               >
                 <span className="profile-avatar" aria-hidden="true">
-                  AJ
+                  {initials}
                 </span>
-                <span className="profile-name">Alex Johnson</span>
+                <span className="profile-name">{currentUser?.name || "Alex Chen"}</span>
                 <ChevronDown size={14} className="profile-chevron" aria-hidden="true" />
               </div>
 
               {showProfileMenu && (
                 <div className="dropdown-popover profile-popover">
                   <div className="profile-popover-header">
-                    <span className="profile-avatar large-avatar">AJ</span>
+                    <span className="profile-avatar large-avatar">{initials}</span>
                     <div className="profile-meta-text">
-                      <strong className="profile-full-name">Alex Johnson</strong>
-                      <span className="profile-email">alex.johnson@stanford.edu</span>
-                      <span className="profile-role">PhD Candidate · AI Lab</span>
+                      <strong className="profile-full-name">{currentUser?.name || "Alex Chen"}</strong>
+                      <span className="profile-email">{currentUser?.email || "alex.chen@stanford.edu"}</span>
+                      <span className="profile-role">
+                        {currentUser?.department || "AI Lab"} · {currentUser?.institution || "Stanford University"}
+                      </span>
                     </div>
                   </div>
                   <div className="profile-stats-strip">

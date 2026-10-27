@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -30,6 +30,8 @@ import {
   topicStages,
   trendingTopics,
 } from "../data/mockPapers.js";
+import { papersService } from "../services/papersService.js";
+import { authService } from "../services/authService.js";
 
 export default function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,6 +39,8 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState("for-you");
   const [selectedTopic, setSelectedTopic] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => authService.getStoredUser());
+  const [papers, setPapers] = useState(mockPapers);
   const [savedPaperIds, setSavedPaperIds] = useState(() => {
     const stored = localStorage.getItem("researchnest_saved_ids");
     return stored ? new Set(JSON.parse(stored)) : new Set(["paper-1", "paper-4", "paper-8"]);
@@ -44,6 +48,15 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [calendarMonth, setCalendarMonth] = useState("October 2026");
   const [activeModalPaper, setActiveModalPaper] = useState(null);
+
+  useEffect(() => {
+    papersService.getPapers().then((data) => {
+      if (data && data.length > 0) setPapers(data);
+    });
+    authService.getCurrentUser().then((u) => {
+      if (u) setCurrentUser(u);
+    });
+  }, []);
 
   function handleSearchSubmit(e) {
     e.preventDefault();
@@ -74,7 +87,7 @@ export default function HomePage() {
   }
 
   const displayedPapers = useMemo(() => {
-    let list = [...mockPapers];
+    let list = [...papers];
 
     if (selectedTopic) {
       list = list.filter((paper) => paper.fieldId === selectedTopic);
@@ -84,35 +97,37 @@ export default function HomePage() {
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (paper) =>
-          paper.title.toLowerCase().includes(q) ||
-          paper.field.toLowerCase().includes(q) ||
-          paper.authors.toLowerCase().includes(q) ||
-          paper.topicTag.toLowerCase().includes(q)
+          paper.title?.toLowerCase().includes(q) ||
+          paper.field?.toLowerCase().includes(q) ||
+          paper.authors?.toLowerCase().includes(q) ||
+          paper.topicTag?.toLowerCase().includes(q)
       );
     }
 
     if (activeTab === "latest") {
-      list.sort((a, b) => b.year - a.year);
+      list.sort((a, b) => (b.year || 0) - (a.year || 0));
     } else if (activeTab === "most-cited") {
-      list.sort((a, b) => b.citations - a.citations);
+      list.sort((a, b) => (b.citations || 0) - (a.citations || 0));
     }
 
     return list;
-  }, [activeTab, selectedTopic, searchQuery]);
+  }, [papers, activeTab, selectedTopic, searchQuery]);
+
+  const firstName = currentUser?.name?.split(" ")[0] || "Researcher";
 
   return (
     <div className="natural-dashboard">
       {/* 1. Human Greeting & Micro Date Banner matching Reference */}
       <section className="dashboard-greeting-banner" aria-label="Greeting">
         <div className="greeting-meta-row">
-          <span className="greeting-date">Thursday, 26 October</span>
+          <span className="greeting-date">Live Research Workspace</span>
           <span className="greeting-meta-separator">·</span>
-          <span className="greeting-tag">Academic Discovery Stack</span>
+          <span className="greeting-tag">Spring Boot API Connected</span>
         </div>
         <div className="greeting-main-row">
           <div className="greeting-text-wrap">
             <h1 className="greeting-headline">
-              Good Evening! <span className="greeting-name">Alex,</span>
+              Good Day! <span className="greeting-name">{firstName},</span>
             </h1>
             <p className="greeting-subtext">
               Welcome back. Here is your curated literature overview and active research queue for today.

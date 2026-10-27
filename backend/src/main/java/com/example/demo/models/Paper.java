@@ -2,6 +2,8 @@ package com.example.demo.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "papers")
@@ -48,6 +50,19 @@ public class Paper {
     // Direct PDF or paper link
     private String pdfUrl;
 
+    // Estimated reading time (e.g., "14 min read")
+    private String readingTime;
+
+    // Formatted BibTeX citation
+    @Column(columnDefinition = "TEXT")
+    private String bibtex;
+
+    // AI synthesized key takeaways
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "paper_takeaways", joinColumns = @JoinColumn(name = "paper_id"))
+    @Column(name = "takeaway", length = 1000)
+    private List<String> takeaways = new ArrayList<>();
+
     public Paper() {
     }
 
@@ -68,6 +83,20 @@ public class Paper {
         this.citationLabel = citationLabel;
         this.openAccess = openAccess != null ? openAccess : true;
         this.pdfUrl = pdfUrl;
+    }
+
+    public Paper(String title, String authors, Integer year, String abstractText,
+                 String doi, String field, String fieldId, String venue,
+                 String topicTag, Integer citations, String citationLabel,
+                 Boolean openAccess, String pdfUrl, String readingTime,
+                 String bibtex, List<String> takeaways) {
+        this(title, authors, year, abstractText, doi, field, fieldId, venue,
+             topicTag, citations, citationLabel, openAccess, pdfUrl);
+        this.readingTime = readingTime;
+        this.bibtex = bibtex;
+        if (takeaways != null) {
+            this.takeaways = new ArrayList<>(takeaways);
+        }
     }
 
     public Long getId() {
@@ -205,5 +234,29 @@ public class Paper {
 
     public void setPdfUrl(String pdfUrl) {
         this.pdfUrl = pdfUrl;
+    }
+
+    public String getReadingTime() {
+        return readingTime;
+    }
+
+    public void setReadingTime(String readingTime) {
+        this.readingTime = readingTime;
+    }
+
+    public String getBibtex() {
+        return bibtex;
+    }
+
+    public void setBibtex(String bibtex) {
+        this.bibtex = bibtex;
+    }
+
+    public List<String> getTakeaways() {
+        return takeaways;
+    }
+
+    public void setTakeaways(List<String> takeaways) {
+        this.takeaways = takeaways != null ? takeaways : new ArrayList<>();
     }
 }

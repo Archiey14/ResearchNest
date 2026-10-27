@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
   Bookmark,
@@ -20,8 +20,10 @@ import {
 } from "lucide-react";
 import PaperModal from "../components/PaperModal.jsx";
 import { mockPapers, mockStacks } from "../data/mockPapers.js";
+import { papersService } from "../services/papersService.js";
 
 export default function SavedPapersPage() {
+  const [allPapers, setAllPapers] = useState(mockPapers);
   const [stacks, setStacks] = useState(() => {
     const saved = localStorage.getItem("researchnest_user_stacks");
     return saved ? JSON.parse(saved) : mockStacks;
@@ -38,6 +40,12 @@ export default function SavedPapersPage() {
   const [newStackName, setNewStackName] = useState("");
   const [newStackDesc, setNewStackDesc] = useState("");
   const [exportNotice, setExportNotice] = useState(false);
+
+  useEffect(() => {
+    papersService.getPapers().then((data) => {
+      if (data && data.length > 0) setAllPapers(data);
+    });
+  }, []);
 
   function toggleSavePaper(id) {
     setSavedIds((prev) => {
@@ -89,8 +97,8 @@ export default function SavedPapersPage() {
 
   // Get papers in user's saved library
   const savedPapers = useMemo(() => {
-    return mockPapers.filter((p) => savedIds.has(p.id));
-  }, [savedIds]);
+    return allPapers.filter((p) => savedIds.has(p.id));
+  }, [allPapers, savedIds]);
 
   // Filtered papers based on active stack, status, and search query
   const displayedSavedPapers = useMemo(() => {
