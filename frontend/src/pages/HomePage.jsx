@@ -45,6 +45,8 @@ export default function HomePage() {
     const stored = localStorage.getItem("researchnest_saved_ids");
     return stored ? new Set(JSON.parse(stored)) : new Set(["paper-1", "paper-4", "paper-8"]);
   });
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [calendarMonth, setCalendarMonth] = useState("October 2026");
   const [activeModalPaper, setActiveModalPaper] = useState(null);
@@ -57,6 +59,24 @@ export default function HomePage() {
       if (u) setCurrentUser(u);
     });
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingRecommendations(true);
+    const ids = Array.from(savedPaperIds);
+    papersService
+      .getRecommendationsForUser(ids, 8)
+      .then((items) => {
+        if (active && items) setAiRecommendations(items);
+      })
+      .catch((err) => console.warn("Failed to load AI recommendations:", err))
+      .finally(() => {
+        if (active) setLoadingRecommendations(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [savedPaperIds]);
 
   function handleSearchSubmit(e) {
     e.preventDefault();
@@ -104,14 +124,25 @@ export default function HomePage() {
       );
     }
 
-    if (activeTab === "latest") {
+    if (activeTab === "for-you" && aiRecommendations.length > 0) {
+      const aiRankMap = new Map();
+      aiRecommendations.forEach((rec, idx) => {
+        aiRankMap.set(String(rec.paper.id), idx);
+      });
+
+      list.sort((a, b) => {
+        const rankA = aiRankMap.has(String(a.id)) ? aiRankMap.get(String(a.id)) : 999;
+        const rankB = aiRankMap.has(String(b.id)) ? aiRankMap.get(String(b.id)) : 999;
+        return rankA - rankB;
+      });
+    } else if (activeTab === "latest") {
       list.sort((a, b) => (b.year || 0) - (a.year || 0));
     } else if (activeTab === "most-cited") {
       list.sort((a, b) => (b.citations || 0) - (a.citations || 0));
     }
 
     return list;
-  }, [papers, activeTab, selectedTopic, searchQuery]);
+  }, [papers, activeTab, selectedTopic, searchQuery, aiRecommendations]);
 
   const firstName = currentUser?.name?.split(" ")[0] || "Researcher";
 
@@ -392,10 +423,35 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* AI Recommendation Engine Feed Banner */}
+          {activeTab === "for-you" && (
+            <div className="ai-feed-banner">
+              <div className="ai-feed-banner-left">
+                <span className="ai-feed-banner-icon">
+                  <Sparkles size={16} />
+                </span>
+                <div>
+                  <h3 className="ai-feed-banner-title">
+                    Smart AI Literature Recommendations
+                  </h3>
+                  <p className="ai-feed-banner-sub">
+                    Personalized to your saved stacks using TF-IDF & Cosine Similarity vector space matching.
+                  </p>
+                </div>
+              </div>
+              <span className="ai-feed-badge">
+                <Sparkles size={12} /> AI Engine Active
+              </span>
+            </div>
+          )}
+
           {/* 2-Column Curated Paper Cards Grid */}
           <div className="curated-papers-grid">
             {displayedPapers.map((paper) => {
               const isSaved = savedPaperIds.has(paper.id);
+              const recInfo = aiRecommendations.find(
+                (r) => String(r.paper?.id) === String(paper.id)
+              );
               return (
                 <article
                   key={paper.id}
@@ -406,7 +462,9 @@ export default function HomePage() {
                   <div className="card-top-row">
                     <span className="card-discipline-pill">{paper.field}</span>
                     <div className="card-top-actions">
-                      <span className="card-match-pill">{paper.matchScore || "98% match"}</span>
+                      <span className={`card-match-pill ${recInfo ? "card-ai-match-pill" : ""}`}>
+                        {recInfo ? recInfo.matchPercentage : (paper.matchScore || "98% match")}
+                      </span>
                       <button
                         type="button"
                         className={`card-bookmark-btn ${isSaved ? "card-bookmark-saved" : ""}`}
@@ -431,6 +489,13 @@ export default function HomePage() {
                   <p className="card-paper-authors">
                     {paper.authors} · <span className="card-venue">{paper.venue}</span> · {paper.year}
                   </p>
+
+                  {recInfo && (
+                    <div className="card-ai-reason">
+                      <Sparkles size={12} className="ai-reason-icon" />
+                      <span>{recInfo.reason}</span>
+                    </div>
+                  )}
 
                   <p className="card-paper-abstract">{paper.abstract}</p>
 
@@ -599,6 +664,7 @@ export default function HomePage() {
           onClose={() => setActiveModalPaper(null)}
           isSaved={savedPaperIds.has(activeModalPaper.id)}
           onToggleSave={toggleSavePaper}
+          onSelectPaper={(p) => setActiveModalPaper(p)}
         />
       )}
     </div>

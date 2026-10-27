@@ -3,6 +3,7 @@ import {
   Bookmark,
   Check,
   Clock,
+  Compass,
   Copy,
   ExternalLink,
   FileCode,
@@ -12,8 +13,9 @@ import {
   Tag,
   X,
 } from "lucide-react";
+import { papersService } from "../services/papersService.js";
 
-export default function PaperModal({ paper, onClose, isSaved, onToggleSave }) {
+export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSelectPaper }) {
   const [citationTab, setCitationTab] = useState("bibtex");
   const [copiedCitation, setCopiedCitation] = useState(false);
   const [userNote, setUserNote] = useState(() => {
@@ -21,6 +23,20 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave }) {
     return localStorage.getItem(`researchnest_note_${paper.id}`) || "";
   });
   const [noteSaved, setNoteSaved] = useState(false);
+  const [similarPapers, setSimilarPapers] = useState([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
+
+  useEffect(() => {
+    if (!paper?.id) return;
+    setLoadingSimilar(true);
+    papersService
+      .getSimilarPapers(paper.id, 3)
+      .then((items) => {
+        if (items) setSimilarPapers(items);
+      })
+      .catch((err) => console.warn("Failed to fetch similar papers:", err))
+      .finally(() => setLoadingSimilar(false));
+  }, [paper?.id]);
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -254,6 +270,54 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave }) {
                 </button>
               </div>
             </form>
+          </section>
+
+          {/* AI-Powered Similar Research Papers */}
+          <section className="modal-section similar-section">
+            <div className="similar-header-row">
+              <h3 className="modal-section-title">
+                <Sparkles size={16} />
+                <span>Similar Research Papers (AI Recommendation)</span>
+              </h3>
+              <span className="ai-badge-pill">TF-IDF Vector Space Model</span>
+            </div>
+
+            {loadingSimilar ? (
+              <div className="similar-loading-placeholder">
+                Computing semantic similarity vectors...
+              </div>
+            ) : similarPapers.length > 0 ? (
+              <div className="similar-cards-grid">
+                {similarPapers.map((sim, i) => (
+                  <div
+                    key={sim.paper?.id || i}
+                    className="similar-paper-card"
+                    onClick={() => {
+                      if (onSelectPaper && sim.paper) {
+                        onSelectPaper(sim.paper);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    title="Click to inspect this paper"
+                  >
+                    <div className="similar-card-top">
+                      <span className="similar-match-pill">{sim.matchPercentage}</span>
+                      <span className="similar-field-tag">{sim.paper?.field}</span>
+                    </div>
+                    <h4 className="similar-paper-title">{sim.paper?.title}</h4>
+                    <p className="similar-paper-author">
+                      {sim.paper?.authors?.slice(0, 45)}... · {sim.paper?.venue}
+                    </p>
+                    <div className="similar-reason-row">
+                      <span className="similar-reason-text">{sim.reason}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="no-similar-text">No similar papers indexed yet.</p>
+            )}
           </section>
         </div>
       </div>

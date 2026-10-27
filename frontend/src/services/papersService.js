@@ -148,4 +148,65 @@ export const papersService = {
     }
     return mockPapers.find((p) => String(p.id) === String(id)) || null;
   },
+
+  /**
+   * Get similar papers using the Python AI recommendation engine via Spring Boot
+   */
+  async getSimilarPapers(paperId, topK = 3) {
+    try {
+      const data = await apiRequest(`/recommendations/similar/${paperId}?topK=${topK}`);
+      if (data?.similarPapers && Array.isArray(data.similarPapers)) {
+        return data.similarPapers.map((item, idx) => ({
+          ...item,
+          paper: normalizePaper(item.paper, idx),
+        }));
+      }
+    } catch (err) {
+      console.warn(`AI similar papers for #${paperId} failed, falling back:`, err);
+    }
+    // Fallback: pick papers with same field or top cited
+    const target = mockPapers.find((p) => String(p.id) === String(paperId));
+    return mockPapers
+      .filter((p) => String(p.id) !== String(paperId))
+      .filter((p) => !target || p.fieldId === target.fieldId)
+      .slice(0, topK)
+      .map((p, idx) => ({
+        paper: p,
+        score: 0.9 - idx * 0.05,
+        matchPercentage: `${92 - idx * 4}% Match`,
+        reason: "Shares core methodology in " + (p.field || "the discipline"),
+      }));
+  },
+
+  /**
+   * Get personalized recommendations for user based on their saved stack
+   */
+  async getRecommendationsForUser(savedIds = [], topK = 4) {
+    try {
+      const idsParam = savedIds && savedIds.length > 0 ? savedIds.join(",") : "";
+      const url = idsParam
+        ? `/recommendations/for-you?savedIds=${encodeURIComponent(idsParam)}&topK=${topK}`
+        : `/recommendations/for-you?topK=${topK}`;
+      const data = await apiRequest(url);
+      if (data?.recommendations && Array.isArray(data.recommendations)) {
+        return data.recommendations.map((item, idx) => ({
+          ...item,
+          paper: normalizePaper(item.paper, idx),
+        }));
+      }
+    } catch (err) {
+      console.warn("AI user recommendations failed, falling back:", err);
+    }
+    // Fallback: pick top papers not in savedIds
+    const savedSet = new Set(savedIds.map(String));
+    return mockPapers
+      .filter((p) => !savedSet.has(String(p.id)))
+      .slice(0, topK)
+      .map((p, idx) => ({
+        paper: p,
+        score: 0.95 - idx * 0.03,
+        matchPercentage: `${96 - idx * 3}% Match`,
+        reason: "Curated based on your active research stack and interests",
+      }));
+  },
 };

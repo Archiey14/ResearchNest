@@ -429,6 +429,7 @@ export default function DiscoverPage() {
           onClose={() => setActiveModalPaper(null)}
           isSaved={savedIds.has(activeModalPaper.id)}
           onToggleSave={toggleSavePaper}
+          onSelectPaper={(p) => setActiveModalPaper(p)}
         />
       )}
     </div>
