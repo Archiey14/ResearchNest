@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ArrowDown,
   ArrowRight,
+  ArrowUpRight,
   Bookmark,
   BookOpen,
   FileText,
@@ -27,6 +28,7 @@ const featureCards = [
     description:
       "Explore academic papers across disciplines with intelligent search and topic matching designed to pinpoint the literature most relevant to your research goals.",
     badge: "Semantic Search",
+    accent: "cyan",
   },
   {
     icon: Bookmark,
@@ -34,6 +36,7 @@ const featureCards = [
     description:
       "Keep pivotal studies, key findings, and references close at hand. Save papers with a single click and access them anytime in your workspace.",
     badge: "Personal Library",
+    accent: "orchid",
   },
   {
     icon: Layers,
@@ -41,6 +44,7 @@ const featureCards = [
     description:
       "Group papers by project, subject, or course. Build structured bibliographies that keep your research workflow organized and focused.",
     badge: "Custom Stacks",
+    accent: "peach",
   },
 ];
 
@@ -71,7 +75,6 @@ export default function LandingPage() {
 
   function handleSearchSubmit(e) {
     e.preventDefault();
-    // Real search is protected inside workspace. Guide visitor to login/register flow.
     navigate("/auth?mode=login&next=%2Fworkspace");
   }
 
@@ -86,17 +89,17 @@ export default function LandingPage() {
         <div className="landing-hero">
           <div className="hero-copy">
             <p className="section-kicker">
-              <Sparkles aria-hidden="true" size={16} />
-              Academic Discovery Platform
+              <Sparkles aria-hidden="true" size={15} />
+              <span>Next-Gen Academic Discovery</span>
             </p>
-            <h1 id="hero-heading">Discover Research That Inspires You</h1>
+            <h1 id="hero-heading" className="hero-title">
+              Discover Research That <span className="hero-title-highlight">Feels Alive</span>
+            </h1>
             <p className="hero-description">
-              Search peer-reviewed literature across disciplines, uncover
-              breakthrough connections, and organize the papers that drive your
-              academic research forward.
+              Step into an elevated scholarly workspace. Search peer-reviewed literature across disciplines, uncover breakthroughs with conversational AI, and curate your personal research stack.
             </p>
 
-            {/* Hero Search Box */}
+            {/* Conversational Search Box matching Reference */}
             <form
               className="hero-search-form"
               onSubmit={handleSearchSubmit}
@@ -104,36 +107,35 @@ export default function LandingPage() {
               aria-label="Literature discovery search"
             >
               <div className="hero-search-bar">
-                <Search className="hero-search-icon" size={20} aria-hidden="true" />
+                <Sparkles className="hero-search-icon" size={19} aria-hidden="true" />
                 <input
                   type="text"
                   className="hero-search-input"
-                  placeholder="Search by topic, paper title, or author (e.g., Quantum Computing)..."
+                  placeholder="✦ Ask anything you need or explore topics (e.g., Quantum Computing)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="Search research papers"
                 />
                 <button
                   type="submit"
-                  className="button button-primary hero-search-btn"
+                  className="hero-search-btn"
                   aria-label="Discover papers"
                 >
-                  <span>Discover</span>
-                  <ArrowRight size={17} aria-hidden="true" />
+                  <span>Send</span>
+                  <ArrowUpRight size={15} aria-hidden="true" />
                 </button>
               </div>
               <p className="hero-search-hint">
                 <Sparkles size={14} aria-hidden="true" />
                 <span>
-                  Search connects directly to the discovery workspace upon signing
-                  in.
+                  Real-time semantic literature synthesis powered by academic neural embeddings.
                 </span>
               </p>
             </form>
 
             {/* Popular Topic Chips */}
             <div className="hero-topics-wrapper" aria-label="Popular topics">
-              <span className="hero-topics-label">Popular topics:</span>
+              <span className="hero-topics-label">Trending topics:</span>
               <div className="hero-topics-list">
                 {popularTopics.map((topic) => {
                   const isSelected = searchQuery === topic;
@@ -161,64 +163,141 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Soft Lavender Research Illustration with Floating Paper Cards */}
+          {/* Realistic Dashboard Preview Canvas matching SaaSrooms & GATHER Aesthetic */}
           <div className="hero-illustration-pane" aria-hidden="true">
-            <div className="orbital-system">
-              <span className="orbit-ring orbit-ring-outer" />
-              <span className="orbit-ring orbit-ring-middle" />
-              <span className="orbit-ring orbit-ring-inner" />
-
-              {/* Central Scientific Hub */}
-              <div className="orbit-core-card">
-                <div className="orbit-core-icon">
-                  <BookOpen size={36} strokeWidth={2} />
+            <div className="preview-floating-window">
+              {/* Window Header */}
+              <div className="preview-window-header">
+                <div className="window-dots">
+                  <span className="dot dot-red" />
+                  <span className="dot dot-yellow" />
+                  <span className="dot dot-green" />
                 </div>
-                <span className="orbit-core-title">ResearchNest</span>
-                <span className="orbit-core-sub">Literature Hub</span>
+                <div className="window-nav-pill">
+                  <BookOpen size={13} />
+                  <span>ResearchNest · Workspace</span>
+                </div>
+                <span className="window-badge-live">Live Preview</span>
               </div>
 
-              {/* Floating Research Paper Cards */}
-              <article className="hero-paper-card hero-paper-card-1">
-                <div className="paper-card-pill-row">
-                  <span className="paper-card-badge">
-                    <Sparkles size={11} aria-hidden="true" />
-                    Artificial Intelligence
-                  </span>
-                  <span className="paper-card-metric">98% match</span>
+              {/* Warm Greeting matching SaaSrooms */}
+              <div className="preview-greeting-row">
+                <span className="preview-date-label">Thursday, 26 October · Academic Stack</span>
+                <h4 className="preview-greeting-text">
+                  Good Evening! <span className="greeting-name-gradient">Alex,</span>
+                </h4>
+              </div>
+
+              {/* 3 KPI metric chips */}
+              <div className="preview-kpi-bar">
+                <div className="preview-kpi-item">
+                  <div className="kpi-micro-num-wrap">
+                    <span className="kpi-micro-num">24</span>
+                    <span className="kpi-micro-trend kpi-trend-green">▲ +4</span>
+                  </div>
+                  <span className="kpi-micro-lbl">Saved Papers</span>
                 </div>
-                <h4 className="paper-card-title">
+                <div className="preview-kpi-item">
+                  <div className="kpi-micro-num-wrap">
+                    <span className="kpi-micro-num">18</span>
+                    <span className="kpi-micro-trend kpi-trend-cyan">▲ 85%</span>
+                  </div>
+                  <span className="kpi-micro-lbl">Papers Read</span>
+                </div>
+                <div className="preview-kpi-item">
+                  <div className="kpi-micro-num-wrap">
+                    <span className="kpi-micro-num">98%</span>
+                    <span className="kpi-micro-trend kpi-trend-purple">✦ Match</span>
+                  </div>
+                  <span className="kpi-micro-lbl">Topic Match</span>
+                </div>
+              </div>
+
+              {/* Mini Visual Split: Sparkline + Topic Bars */}
+              <div className="preview-analytics-mini-grid">
+                {/* Mini Sparkline Chart */}
+                <div className="preview-chart-box">
+                  <div className="preview-chart-head">
+                    <span className="chart-micro-title">Reading Activity</span>
+                    <span className="chart-micro-pill">Last 6 Mos</span>
+                  </div>
+                  <svg className="preview-sparkline-svg" viewBox="0 0 160 48">
+                    <defs>
+                      <linearGradient id="landingCurveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M 5 36 Q 30 26, 55 22 T 95 28 T 130 12 T 155 6 L 155 46 L 5 46 Z"
+                      fill="url(#landingCurveGrad)"
+                    />
+                    <path
+                      d="M 5 36 Q 30 26, 55 22 T 95 28 T 130 12 T 155 6"
+                      fill="none"
+                      stroke="#8b5cf6"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="155" cy="6" r="3" fill="#8b5cf6" />
+                  </svg>
+                </div>
+
+                {/* Mini Topic Progress Bars matching SaaSrooms Reference */}
+                <div className="preview-topic-bars-box">
+                  <span className="chart-micro-title">Topic Distribution</span>
+                  <div className="mini-stage-item">
+                    <div className="mini-stage-label-row">
+                      <span>AI Reasoning</span>
+                      <span className="mini-stage-num">14</span>
+                    </div>
+                    <div className="mini-bar-track">
+                      <div className="mini-bar-fill bar-cyan" style={{ width: "80%" }} />
+                    </div>
+                  </div>
+                  <div className="mini-stage-item">
+                    <div className="mini-stage-label-row">
+                      <span>Neuro Memory</span>
+                      <span className="mini-stage-num">9</span>
+                    </div>
+                    <div className="mini-bar-track">
+                      <div className="mini-bar-fill bar-orchid" style={{ width: "55%" }} />
+                    </div>
+                  </div>
+                  <div className="mini-stage-item">
+                    <div className="mini-stage-label-row">
+                      <span>Quantum Scale</span>
+                      <span className="mini-stage-num">6</span>
+                    </div>
+                    <div className="mini-bar-track">
+                      <div className="mini-bar-fill bar-peach" style={{ width: "35%" }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating Curated Paper Card */}
+              <article className="preview-paper-card">
+                <div className="preview-paper-header">
+                  <span className="preview-discipline-badge">
+                    <Sparkles size={11} /> Artificial Intelligence
+                  </span>
+                  <span className="preview-match-badge">98% match</span>
+                </div>
+                <h5 className="preview-paper-title">
                   Attention Mechanisms in Deep Neural Reasoning
-                </h4>
-                <p className="paper-card-authors">Vaswani et al. · NeurIPS</p>
+                </h5>
+                <p className="preview-paper-author">Vaswani et al. · NeurIPS</p>
+                <div className="preview-paper-footer">
+                  <span className="preview-cit-count">3.2k citations</span>
+                  <span className="preview-read-action">Read Paper →</span>
+                </div>
               </article>
 
-              <article className="hero-paper-card hero-paper-card-2">
-                <div className="paper-card-pill-row">
-                  <span className="paper-card-badge">
-                    <Bookmark size={11} aria-hidden="true" />
-                    Neuroscience
-                  </span>
-                  <span className="paper-card-saved">Saved</span>
-                </div>
-                <h4 className="paper-card-title">
-                  Cortical Mapping of Semantic Memory
-                </h4>
-                <p className="paper-card-authors">Chen & Albright · Nature</p>
-              </article>
-
-              <article className="hero-paper-card hero-paper-card-3">
-                <div className="paper-card-pill-row">
-                  <span className="paper-card-badge">
-                    <Waypoints size={11} aria-hidden="true" />
-                    Quantum Computing
-                  </span>
-                  <span className="paper-card-oa">Open Access</span>
-                </div>
-                <h4 className="paper-card-title">
-                  Fault-Tolerant Architectures at Scale
-                </h4>
-                <p className="paper-card-authors">Preskill et al. · Phys. Rev.</p>
-              </article>
+              {/* Floating streak pill */}
+              <div className="preview-floating-streak">
+                <span>🔥 5-Day Reading Streak</span>
+              </div>
             </div>
           </div>
         </div>

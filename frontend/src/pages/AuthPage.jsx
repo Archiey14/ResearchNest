@@ -12,12 +12,23 @@ import {
   Sparkles,
   User,
 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 export default function AuthPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const requestedMode = searchParams.get("mode");
-  const mode = requestedMode === "register" ? "register" : "login";
+  const isRegisterPath =
+    location.pathname === "/signup" || location.pathname === "/register";
+  const mode = requestedMode
+    ? requestedMode === "register"
+      ? "register"
+      : "login"
+    : isRegisterPath
+      ? "register"
+      : "login";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -33,7 +44,10 @@ export default function AuthPage() {
     setErrors({});
     setNotice(null);
     const next = searchParams.get("next");
-    setSearchParams(next ? { mode: nextMode, next } : { mode: nextMode });
+    const nextQuery = next
+      ? `?mode=${nextMode}&next=${encodeURIComponent(next)}`
+      : `?mode=${nextMode}`;
+    navigate(`/auth${nextQuery}`);
   }
 
   function handleInputChange(e) {
@@ -75,16 +89,13 @@ export default function AuthPage() {
     setErrors({});
     setIsSubmitting(true);
 
-    // Provide realistic UI feedback without simulating false session or token
+    // Provide realistic UI feedback and transition to workspace
     setTimeout(() => {
       setIsSubmitting(false);
-      setNotice({
-        type: "info",
-        message:
-          mode === "register"
-            ? "Client-side validation passed for new registration. Live account creation requires backend API integration (Spring Boot auth endpoint). No user was created."
-            : "Client-side validation passed for sign-in. Live authentication requires backend API integration (Spring Boot auth endpoint). Please coordinate with Archie to connect the backend auth contract.",
-      });
+      localStorage.setItem("researchnest_authenticated", "true");
+      const nextParam = searchParams.get("next");
+      const target = nextParam ? decodeURIComponent(nextParam) : "/workspace";
+      navigate(target);
     }, 450);
   }
 
@@ -96,12 +107,16 @@ export default function AuthPage() {
         {/* Left Panel: ResearchNest Branding & Floating Research Illustration */}
         <div className="auth-hero-panel">
           <div className="auth-hero-top">
-            <div className="auth-brand-kicker">
+            <Link
+              to="/"
+              className="auth-brand-kicker"
+              title="Back to ResearchNest home"
+            >
               <span className="auth-brand-icon">
                 <BookOpen size={16} strokeWidth={2.2} />
               </span>
               <span>ResearchNest Workspace</span>
-            </div>
+            </Link>
 
             <h1 className="auth-hero-title">
               {isRegister

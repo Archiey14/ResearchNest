@@ -4,7 +4,7 @@ import SiteFooter from "../components/SiteFooter.jsx";
 
 export default function PublicLayout() {
   return (
-    <div className="public-shell">
+    <div className="public-ambient-shell">
       <BrandHeader />
       <main className="public-main">
         <Outlet />
