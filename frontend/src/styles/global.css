@@ -5887,6 +5887,146 @@ h1 {
   flex-shrink: 0;
 }
 
+/* 4. Live Scholarly API Stream & Source Toggle */
+.feed-source-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--pill-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.feed-source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.feed-source-pill:hover {
+  color: var(--color-ink);
+}
+
+.feed-source-pill-active {
+  background: var(--canvas-bg);
+  color: var(--color-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-weight: 800;
+}
+
+[data-theme="dark"] .feed-source-pill-active {
+  background: var(--color-accent-soft);
+  color: #c084fc;
+}
+
+.scholarly-feed-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%);
+  border: 1.5px solid rgba(6, 182, 212, 0.28);
+  border-radius: 18px;
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+[data-theme="dark"] .scholarly-feed-banner {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.14) 0%, rgba(59, 130, 246, 0.14) 100%);
+  border-color: rgba(6, 182, 212, 0.38);
+}
+
+.scholarly-feed-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.scholarly-globe-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(6, 182, 212, 0.15);
+  color: #0891b2;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .scholarly-globe-icon {
+  color: #22d3ee;
+  background: rgba(6, 182, 212, 0.25);
+}
+
+.scholarly-feed-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+
+.scholarly-feed-sub {
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  line-height: 1.4;
+}
+
+.scholarly-fetching-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 750;
+  color: #0891b2;
+  background: rgba(6, 182, 212, 0.12);
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+[data-theme="dark"] .scholarly-fetching-pill {
+  color: #22d3ee;
+  background: rgba(6, 182, 212, 0.22);
+}
+
+.spin-icon {
+  animation: spinSlow 1s linear infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.empty-state-notice {
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--card-bg);
+  border: 1.5px dashed var(--color-border);
+  border-radius: 20px;
+  margin-top: 16px;
+}
+
+.empty-state-notice p {
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  margin: 0 0 16px;
+}
+
 /* ==========================================================================
    Discover Page (Scholarly Literature Exploration Hub)
    ========================================================================== */

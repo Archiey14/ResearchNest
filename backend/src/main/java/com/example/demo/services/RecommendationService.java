@@ -147,4 +147,15 @@ public class RecommendationService {
         res.put("recommendations", items);
         return res;
     }
+
+    /**
+     * Triggers the Python AI microservice to sync and re-vectorize the catalog
+     */
+    public void triggerCatalogSync() {
+        try {
+            restTemplate.postForEntity(aiServiceUrl + "/sync-catalog", null, Map.class);
+        } catch (Exception e) {
+            System.err.println("Could not sync catalog with AI microservice: " + e.getMessage());
+        }
+    }
 }

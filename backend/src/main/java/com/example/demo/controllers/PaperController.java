@@ -6,7 +6,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.demo.services.RecommendationService;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/papers")
@@ -14,9 +19,33 @@ import java.util.List;
 public class PaperController {
 
     private final PaperService paperService;
+    private final RecommendationService recommendationService;
 
-    public PaperController(PaperService paperService) {
+    public PaperController(PaperService paperService, RecommendationService recommendationService) {
         this.paperService = paperService;
+        this.recommendationService = recommendationService;
+    }
+
+    /**
+     * Real dynamic database statistics and metrics
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getDatabaseStats() {
+        List<Paper> all = paperService.getAllPapers();
+        long totalCitations = all.stream()
+                .mapToLong(p -> p.getCitations() != null ? p.getCitations() : 0)
+                .sum();
+
+        Map<String, Long> fieldDistribution = all.stream()
+                .filter(p -> p.getField() != null)
+                .collect(Collectors.groupingBy(Paper::getField, Collectors.counting()));
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalPapers", all.size());
+        stats.put("totalCitations", totalCitations);
+        stats.put("fieldsDistribution", fieldDistribution);
+        stats.put("openAccessCount", all.stream().filter(p -> Boolean.TRUE.equals(p.getOpenAccess())).count());
+        return ResponseEntity.ok(stats);
     }
 
     /**
@@ -72,6 +101,8 @@ public class PaperController {
     @PostMapping
     public ResponseEntity<Paper> createPaper(@RequestBody Paper paper) {
         Paper saved = paperService.savePaper(paper);
+        // Automatically trigger AI microservice to re-index vector space
+        recommendationService.triggerCatalogSync();
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 

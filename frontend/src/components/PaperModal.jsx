@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { papersService } from "../services/papersService.js";
+import { activityService } from "../services/activityService.js";
 
 export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSelectPaper }) {
   const [citationTab, setCitationTab] = useState("bibtex");
@@ -28,6 +29,7 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSe
 
   useEffect(() => {
     if (!paper?.id) return;
+    activityService.recordPaperVisit(paper);
     setLoadingSimilar(true);
     papersService
       .getSimilarPapers(paper.id, 3)
@@ -73,6 +75,12 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSe
     const text = generateCitation(citationTab);
     navigator.clipboard.writeText(text);
     setCopiedCitation(true);
+    activityService.logActivity(
+      `Exported ${citationTab.toUpperCase()} citation`,
+      paper.title?.length > 40 ? `${paper.title.slice(0, 40)}...` : paper.title,
+      "citation",
+      "green"
+    );
     setTimeout(() => setCopiedCitation(false), 2000);
   }
 
@@ -80,6 +88,12 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSe
     e.preventDefault();
     localStorage.setItem(`researchnest_note_${paper.id}`, userNote);
     setNoteSaved(true);
+    activityService.logActivity(
+      "Saved personal research note",
+      paper.title?.length > 40 ? `${paper.title.slice(0, 40)}...` : paper.title,
+      "note",
+      "peach"
+    );
     setTimeout(() => setNoteSaved(false), 2000);
   }
 
