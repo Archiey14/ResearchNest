@@ -21,17 +21,17 @@ public class RecommendationController {
     }
 
     public static class UserRecommendationRequest {
-        public List<Long> savedPaperIds;
+        public List<Object> savedPaperIds;
         public Integer topK;
     }
 
     /**
      * Get similar papers for a given paper ID using the AI similarity engine.
-     * Example: GET /api/recommendations/similar/9?topK=3
+     * Example: GET /api/recommendations/similar/9?topK=3 or /api/recommendations/similar/paper-9?topK=3
      */
     @GetMapping("/similar/{paperId}")
     public ResponseEntity<?> getSimilarPapers(
-            @PathVariable Long paperId,
+            @PathVariable String paperId,
             @RequestParam(defaultValue = "3") int topK) {
         return ResponseEntity.ok(recommendationService.getSimilarPapers(paperId, topK));
     }
@@ -42,7 +42,7 @@ public class RecommendationController {
      */
     @PostMapping("/user")
     public ResponseEntity<?> getRecommendationsForUser(@RequestBody UserRecommendationRequest req) {
-        List<Long> saved = req != null && req.savedPaperIds != null ? req.savedPaperIds : Collections.emptyList();
+        List<Object> saved = req != null && req.savedPaperIds != null ? req.savedPaperIds : Collections.emptyList();
         int topK = req != null && req.topK != null ? req.topK : 5;
         return ResponseEntity.ok(recommendationService.getRecommendationsForUser(saved, topK));
     }
@@ -55,12 +55,24 @@ public class RecommendationController {
     public ResponseEntity<?> getForYou(
             @RequestParam(required = false) String savedIds,
             @RequestParam(defaultValue = "5") int topK) {
-        List<Long> parsedIds = new ArrayList<>();
+        List<Object> parsedIds = new ArrayList<>();
         if (savedIds != null && !savedIds.isBlank()) {
             for (String part : savedIds.split(",")) {
-                try {
-                    parsedIds.add(Long.parseLong(part.trim()));
-                } catch (NumberFormatException ignored) {}
+                String trimmed = part.trim();
+                if (!trimmed.isEmpty()) {
+                    try {
+                        parsedIds.add(Long.parseLong(trimmed));
+                    } catch (NumberFormatException e) {
+                        String digits = trimmed.replaceAll("[^0-9]", "");
+                        if (!digits.isEmpty()) {
+                            try {
+                                parsedIds.add(Long.parseLong(digits));
+                            } catch (NumberFormatException ignored) {}
+                        } else {
+                            parsedIds.add(trimmed);
+                        }
+                    }
+                }
             }
         }
         return ResponseEntity.ok(recommendationService.getRecommendationsForUser(parsedIds, topK));

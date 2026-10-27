@@ -26,7 +26,7 @@ public class RecommendationService {
     /**
      * Recommends papers similar to a target paper using the Python AI TF-IDF Cosine Similarity service.
      */
-    public Map<String, Object> getSimilarPapers(Long paperId, int topK) {
+    public Map<String, Object> getSimilarPapers(Object paperId, int topK) {
         try {
             String url = aiServiceUrl + "/recommend/similar";
             Map<String, Object> req = new HashMap<>();
@@ -45,13 +45,29 @@ public class RecommendationService {
             System.err.println("AI microservice error on similar papers lookup: " + e.getMessage());
         }
 
-        return buildFallbackSimilar(paperId, topK > 0 ? topK : 3);
+        Long numericId = null;
+        if (paperId instanceof Number) {
+            numericId = ((Number) paperId).longValue();
+        } else if (paperId != null) {
+            try {
+                numericId = Long.parseLong(paperId.toString().trim());
+            } catch (Exception e) {
+                String digits = paperId.toString().replaceAll("[^0-9]", "");
+                if (!digits.isEmpty()) {
+                    try {
+                        numericId = Long.parseLong(digits);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        return buildFallbackSimilar(numericId, topK > 0 ? topK : 3);
     }
 
     /**
      * Recommends personalized papers based on the researcher's saved stack.
      */
-    public Map<String, Object> getRecommendationsForUser(List<Long> savedPaperIds, int topK) {
+    public Map<String, Object> getRecommendationsForUser(List<?> savedPaperIds, int topK) {
         try {
             String url = aiServiceUrl + "/recommend/user";
             Map<String, Object> req = new HashMap<>();
@@ -117,15 +133,20 @@ public class RecommendationService {
         return res;
     }
 
-    private Map<String, Object> buildFallbackUserRecommendations(List<Long> savedPaperIds, int topK) {
+    private Map<String, Object> buildFallbackUserRecommendations(List<?> savedPaperIds, int topK) {
         Map<String, Object> res = new HashMap<>();
         res.put("userSavedPaperIds", savedPaperIds);
 
-        Set<Long> savedSet = savedPaperIds != null ? new HashSet<>(savedPaperIds) : Collections.emptySet();
+        Set<String> savedSet = new HashSet<>();
+        if (savedPaperIds != null) {
+            for (Object item : savedPaperIds) {
+                if (item != null) savedSet.add(String.valueOf(item));
+            }
+        }
         List<Paper> all = paperRepository.findAll();
 
         List<Paper> candidates = all.stream()
-                .filter(p -> !savedSet.contains(p.getId()))
+                .filter(p -> !savedSet.contains(String.valueOf(p.getId())))
                 .sorted((a, b) -> Integer.compare(b.getCitations() != null ? b.getCitations() : 0,
                                                    a.getCitations() != null ? a.getCitations() : 0))
                 .limit(topK)

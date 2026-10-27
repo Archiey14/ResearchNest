@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ResearchNest - AI Paper Recommendation Engine Architecture</title>
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 8pt;
+      color: #94a3b8;
+    }
+  }
+  
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    font-size: 9.5pt;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .cover-header {
+    border-bottom: 2.5px solid #7c3aed;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+  }
+  
+  .badge-tag {
+    display: inline-block;
+    background: rgba(124, 58, 237, 0.1);
+    color: #7c3aed;
+    font-weight: 750;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(124, 58, 237, 0.25);
+  }
+  
+  h1 {
+    font-size: 20pt;
+    color: #0f172a;
+    margin: 4px 0 6px;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  
+  .sub-title {
+    font-size: 11pt;
+    color: #64748b;
+    margin: 0 0 12px;
+    font-weight: 400;
+  }
+  
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 8pt;
+  }
+  
+  .meta-item strong {
+    display: block;
+    color: #475569;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  h2 {
+    font-size: 12pt;
+    color: #1e1b4b;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 4px;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    page-break-after: avoid;
+  }
+  
+  h2::before {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 15px;
+    background: #7c3aed;
+    border-radius: 2px;
+  }
+  
+  h3 {
+    font-size: 10pt;
+    color: #334155;
+    margin-top: 12px;
+    margin-bottom: 5px;
+    page-break-after: avoid;
+  }
+
+  p {
+    margin: 0 0 6px;
+  }
+
+  .diagram-box {
+    background: #0f172a;
+    color: #f1f5f9;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: "SF Mono", Menlo, Consolas, Monaco, monospace;
+    font-size: 7.2pt;
+    line-height: 1.4;
+    margin: 10px 0;
+    border: 1px solid #334155;
+    page-break-inside: avoid;
+  }
+  
+  .diagram-title {
+    color: #38bdf8;
+    font-weight: bold;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 7.5pt;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 8pt;
+    page-break-inside: auto;
+  }
+  
+  tr {
+    page-break-inside: avoid;
+  }
+  
+  th, td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  th {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 7pt;
+    letter-spacing: 0.04em;
+  }
+  
+  tr:nth-child(even) td {
+    background: #f8fafc;
+  }
+
+  .formula-card {
+    background: #f5f3ff;
+    border-left: 3.5px solid #7c3aed;
+    padding: 8px 12px;
+    border-radius: 0 8px 8px 0;
+    margin: 8px 0;
+    font-size: 8.5pt;
+    page-break-inside: avoid;
+  }
+  
+  .formula-title {
+    font-weight: 700;
+    color: #5b21b6;
+    margin-bottom: 3px;
+    font-size: 8.5pt;
+  }
+
+  .formula-math {
+    font-family: "SF Mono", Menlo, Consolas, Monaco, monospace;
+    font-size: 8.5pt;
+    color: #1e1b4b;
+    background: #ede9fe;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 3px 0;
+    line-height: 1.4;
+  }
+
+  .highlight-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+
+  .highlight-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: #ffffff;
+  }
+  
+  .highlight-card h4 {
+    margin: 0 0 3px;
+    color: #0f172a;
+    font-size: 8.5pt;
+  }
+  
+  .highlight-card p {
+    margin: 0;
+    color: #64748b;
+    font-size: 7.5pt;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  ul, ol {
+    margin: 0 0 6px;
+    padding-left: 16px;
+  }
+
+  li {
+    margin-bottom: 3px;
+  }
+
+  .endpoint-badge {
+    display: inline-block;
+    font-family: monospace;
+    font-size: 7pt;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin-right: 4px;
+  }
+  .ep-get { background: #e0f2fe; color: #0369a1; }
+  .ep-post { background: #dcfce7; color: #15803d; }
+  .ep-put { background: #fef3c7; color: #b45309; }
+  .ep-del { background: #fee2e2; color: #b91c1c; }
+
+  .status-tag-done {
+    color: #16a34a;
+    font-weight: 750;
+    background: #dcfce7;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 7pt;
+    text-transform: uppercase;
+  }
+  .status-tag-next {
+    color: #d97706;
+    font-weight: 750;
+    background: #fef3c7;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 7pt;
+    text-transform: uppercase;
+  }
+
+  .footer-note {
+    margin-top: 24px;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    text-align: center;
+    font-size: 7.5pt;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Cover Header -->
+  <div class="cover-header">
+    <div class="badge-tag">System Architectural Specification & Engineering Whitepaper</div>
+    <h1>ResearchNest AI Paper Recommendation System</h1>
+    <div class="sub-title">Complete Architectural Specification, Mathematical Vector Space Modeling, Microservice Topology, and Operational Guide</div>
+    
+    <div class="meta-grid">
+      <div class="meta-item">
+        <strong>Author & Project</strong>
+        ResearchNest Core Engineering
+      </div>
+      <div class="meta-item">
+        <strong>Engine Version</strong>
+        v1.0.0 (Production Core)
+      </div>
+      <div class="meta-item">
+        <strong>Topology</strong>
+        Tri-Tier Hybrid Microservice
+      </div>
+      <div class="meta-item">
+        <strong>Target Stack</strong>
+        React 18 · Spring Boot · FastAPI · MySQL
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 1 -->
+  <h2>1. Executive Summary & Problem Formulation</h2>
+  <p>
+    Contemporary academic and industrial researchers are confronted with exponential growth in scholarly literature: over <strong>2.5 million peer-reviewed scientific papers</strong> are published annually across global archives (arXiv, PubMed, IEEE, Nature, ACM). Traditional keyword search engines rely on brittle lexical string matching, creating high cognitive search friction and overlooking cross-disciplinary breakthrough papers that use differing terminologies for equivalent concepts.
+  </p>
+  <p>
+    <strong>ResearchNest</strong> resolves this problem by implementing a dual-engine architecture:
+  </p>
+  <ul>
+    <li><strong>Verified Internal Catalog (Spring Boot + MySQL):</strong> Curated, landmark publications with peer-reviewed citation benchmarks, reading milestones, and verified takeaways.</li>
+    <li><strong>Global Live Scholarly Stream (OpenAlex API):</strong> Real-time indexing of 250M+ international publications, enabling semantic querying across global preprints and peer-reviewed works.</li>
+    <li><strong>Dedicated AI Recommendation Microservice (Python FastAPI + Scikit-Learn):</strong> High-dimensional TF-IDF vector space modeling, dynamic user centroid profile computation, and explainable cosine similarity ranking.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. End-to-End System Architecture Topology</h2>
+  <p>
+    The system follows a decoupled, resilient microservices architecture separating client presentation, enterprise business logic/persistence, and high-performance machine learning vector operations.
+  </p>
+
+  <div class="diagram-box">
+<div class="diagram-title">System Microservice Topology & Data Exchange Flow</div>
++----------------------------------------------------------------------------------------------------+
+|                                    CLIENT APPLICATION LAYER                                        |
+|  React 18 SPA (Vite) @ http://localhost:5173                                                       |
+|  • HomePage (Feed, KPIs, Analytics, Calendar)      • DiscoverPage (Semantic Search & Multi-Filters) |
+|  • SavedPapersPage (Stacks, Reading Status, BibTeX) • PaperModal (Takeaways, Similar Papers, Notes)|
++------------------------------------+---------------------------------------------------------------+
+                                     |  HTTP REST / JSON (CORS Enabled)
+                                     v
++----------------------------------------------------------------------------------------------------+
+|                               ENTERPRISE BACKEND GATEWAY LAYER                                      |
+|  Spring Boot 3 REST API (Java 17) @ http://localhost:8081                                          |
+|  • PaperController (/api/papers)                   • RecommendationController (/api/recommendations)|
+|  • AuthController (/api/auth)                      • DataInitializer (Automated DB Seeding)         |
+|  • Spring Data JPA / Hibernate ORM                 • RestTemplate AI Microservice Client            |
++-------------------+------------------------------------------------+-------------------------------+
+                    | JDBC Pool                                      | HTTP Internal Service Proxy
+                    v                                                v
++------------------------------------+             +-------------------------------------------------+
+|       DATA PERSISTENCE LAYER       |             |           AI INFERENCE ENGINE LAYER             |
+|  MySQL 8.0 Database @ :3306        |             |  Python 3 FastAPI Microservice @ :8000          |
+|  • Database: researchnest_db       |             |  • engine.py (TfidfVectorizer, Cosine Sim)     |
+|  • Table: papers (Metadata, Text)  |             |  • main.py (REST Endpoints, Catalog Sync)       |
+|  • Table: users (Auth, Affiliation)|             |  • Vector Space Cache (Sparse TF-IDF Matrix)    |
++------------------------------------+             +-------------------------------------------------+
+                                                                     ^
+                                                                     | Live Ingestion
++--------------------------------------------------------------------+-------------------------------+
+|                                    EXTERNAL SCHOLARLY DATA STREAM                                  |
+|  OpenAlex REST API (https://api.openalex.org) · 250 Million Works & Authors                        |
++----------------------------------------------------------------------------------------------------+
+  </div>
+
+  <div class="highlight-grid">
+    <div class="highlight-card">
+      <h4>Spring Boot Enterprise Gateway</h4>
+      <p>Handles transactional persistence, user authentication, catalog seeding, paper CRUD operations, and proxies recommendation requests to the Python AI engine.</p>
+    </div>
+    <div class="highlight-card">
+      <h4>Python FastAPI AI Microservice</h4>
+      <p>Maintains an in-memory sparse vector space matrix, runs real-time centroid vector computations, and outputs similarity scores with human-readable explanations.</p>
+    </div>
+    <div class="highlight-card">
+      <h4>React 18 Single-Page Application</h4>
+      <p>Features interactive KPI dashboards, SVG analytics sparklines, 7-column research calendars, multi-criteria facets, and real-time saved stack synchronization.</p>
+    </div>
+    <div class="highlight-card">
+      <h4>MySQL Relational Storage</h4>
+      <p>Stores normalized research metadata, citation counts, full abstracts, DOIs, BibTeX citations, user accounts, and personal reading queues.</p>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Mathematical Formulation of the AI Recommendation Engine</h2>
+  <p>
+    The AI Recommendation Engine (<code>ai-service/engine.py</code>) operates on Content-Based Filtering principles using vector space representations of textual scholarly works.
+  </p>
+
+  <h3>3.1 Feature Extraction & Weighted Document Composition</h3>
+  <p>
+    To capture domain significance without semantic drift, each paper <em>p</em> is transformed into a weighted synthetic corpus document <em>D_p</em>. Higher structural weights are assigned to salient metadata features:
+  </p>
+  <div class="formula-card">
+    <div class="formula-title">Synthetic Document Weighting Equation</div>
+    <div class="formula-math">D_p = [Title] × 3  ||  [TopicTag] × 2  ||  [Field] × 2  ||  [Abstract]  ||  [Authors]</div>
+    <p>Titles and topic keywords receive 3x and 2x repetition weight to prioritize domain specificity over general abstract terminology.</p>
+  </div>
+
+  <h3>3.2 Term Frequency - Inverse Document Frequency (TF-IDF)</h3>
+  <p>
+    The corpus of <em>N</em> papers is transformed into a high-dimensional vector space using Scikit-Learn's <code>TfidfVectorizer</code>. The weight of term <em>t</em> in document <em>d</em> is calculated using sublinear term-frequency scaling:
+  </p>
+  <div class="formula-card">
+    <div class="formula-title">Sublinear TF-IDF Transformation</div>
+    <div class="formula-math">TF(t, d) = 1 + ln(f_{t,d}) &nbsp;&nbsp;for f_{t,d} &gt; 0</div><br>
+    <div class="formula-math">IDF(t, D) = ln((1 + N) / (1 + |{d ∈ D : t ∈ d}|)) + 1</div><br>
+    <div class="formula-math">v_d = w_d / ||w_d||_2 &nbsp;&nbsp;where w_{t,d} = TF(t, d) × IDF(t, D)</div>
+    <p>L2 Euclidean normalization guarantees that document length differences do not distort similarity metrics.</p>
+  </div>
+
+  <h3>3.3 User Profile Centroid Vector Calculation</h3>
+  <p>
+    When a researcher saves or bookmarks a set of papers <em>S = {p_1, p_2, ..., p_k}</em> with corresponding normalized TF-IDF vectors <em>{v_1, v_2, ..., v_k}</em>, the engine synthesizes an aggregate <strong>User Profile Centroid Vector</strong>:
+  </p>
+  <div class="formula-card">
+    <div class="formula-title">Researcher Centroid Vector</div>
+    <div class="formula-math">u_profile = (1 / |S|) × ∑_{s ∈ S} v_s</div>
+    <p>This centroid represents the user's active, multi-disciplinary research locus within the high-dimensional scientific manifold.</p>
+  </div>
+
+  <h3>3.4 Cosine Similarity & Feed Ranking</h3>
+  <p>
+    To rank all candidate catalog papers against the user's profile, the engine evaluates the cosine similarity:
+  </p>
+  <div class="formula-card">
+    <div class="formula-title">Cosine Similarity Measure</div>
+    <div class="formula-math">Similarity(u_profile, v_c) = cos(θ) = (u_profile • v_c) / (||u_profile||_2 × ||v_c||_2)</div>
+    <p>Scores are normalized to a human-readable match index between 75% and 98%:</p>
+    <div class="formula-math">MatchPercentage(c) = clamp(75, 98, round(86 + 12 × (Sim(c) / max(Sim)) - 2 × Rank))</div>
+  </div>
+
+  <h3>3.5 Explainability & Nearest Anchor Attribution Engine</h3>
+  <p>
+    A critical limitation of traditional AI recommenders is the "black box" phenomenon. ResearchNest incorporates a deterministic <strong>Nearest Anchor Attribution Engine</strong>:
+  </p>
+  <div class="formula-card">
+    <div class="formula-title">Anchor Paper Attribution</div>
+    <div class="formula-math">Anchor(c) = argmax_{s ∈ S} (v_c • v_s)</div>
+    <p>The engine identifies the specific saved paper that contributed the highest pairwise similarity, producing contextual explanations such as: <em>"Recommended based on your saved paper 'Attention Is All You Need' (Artificial Intelligence)"</em>.</p>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Core Sequence Workflows & Data Pipelines</h2>
+
+  <h3>4.1 Catalog Indexing & Vector Space Synchronization</h3>
+  <div class="diagram-box">
+<div class="diagram-title">Workflow 1: System Boot & Real-Time Re-Indexing</div>
+Spring Boot (:8081)           Python AI Microservice (:8000)          TfidfVectorizer
+       |                                    |                                |
+       |--- App Startup / Paper Created --->|                                |
+       |    GET /api/papers                 |                                |
+       |                                    |--- Extracts Text Corpus ------>|
+       |                                    |<-- Builds Sparse TF-IDF Matrix-|
+       |<-- 200 OK Catalog Indexed ---------|                                |
+  </div>
+
+  <h3>4.2 Real-Time User Saving & Recommendation Re-Ranking</h3>
+  <div class="diagram-box">
+<div class="diagram-title">Workflow 2: Saving Paper in Explore & Live Feed Update</div>
+React Client (:5173)         Spring Boot (:8081)             Python AI (:8000)
+       |                              |                             |
+       |-- User Clicks Bookmark ----->|                             |
+       |   (Paper stays in feed,      |                             |
+       |    icon turns purple)        |                             |
+       |                              |                             |
+       |-- GET /recommendations/for-you?savedIds=1,4,10 ----------->|
+       |                              |                             |
+       |                              |-- POST /recommend/user ---->|
+       |                              |   Compute Centroid Vector   |
+       |                              |   Cosine Sim over Catalog   |
+       |                              |<-- Ranked Papers + Reasons -|
+       |<-- Top Matches + Explanations|                             |
+       |    Feed ranks & labels update|                             |
+  </div>
+
+  <!-- Section 5 -->
+  <h2>5. REST API Specifications</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th>Method</th>
+        <th>Endpoint</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-get">GET</span></td>
+        <td><code>/api/papers</code></td>
+        <td>Retrieve all catalog papers with optional search and field filtering.</td>
+      </tr>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-get">GET</span></td>
+        <td><code>/api/papers/{id}</code></td>
+        <td>Fetch complete paper metadata, abstract, citations, takeaways, and BibTeX.</td>
+      </tr>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-get">GET</span></td>
+        <td><code>/api/papers/stats</code></td>
+        <td>Aggregate real-time metrics (total papers, citations, field distributions).</td>
+      </tr>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-post">POST</span></td>
+        <td><code>/api/papers</code></td>
+        <td>Persist new paper to MySQL and trigger automatic AI catalog re-index.</td>
+      </tr>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-get">GET</span></td>
+        <td><code>/api/recommendations/for-you</code></td>
+        <td>Gateway proxy to fetch user recommendations based on saved IDs.</td>
+      </tr>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-get">GET</span></td>
+        <td><code>/api/recommendations/similar/{id}</code></td>
+        <td>Gateway proxy to fetch similar papers for a given target publication.</td>
+      </tr>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-post">POST</span></td>
+        <td><code>/api/auth/register</code></td>
+        <td>Register new user with name, email, password, institution, and department.</td>
+      </tr>
+      <tr>
+        <td>Spring Boot</td>
+        <td><span class="endpoint-badge ep-post">POST</span></td>
+        <td><code>/api/auth/login</code></td>
+        <td>Authenticate user credentials and issue session token.</td>
+      </tr>
+      <tr>
+        <td>Python AI</td>
+        <td><span class="endpoint-badge ep-post">POST</span></td>
+        <td><code>/recommend/user</code></td>
+        <td>Calculates profile centroid from <code>savedPaperIds</code> and returns ranked papers.</td>
+      </tr>
+      <tr>
+        <td>Python AI</td>
+        <td><span class="endpoint-badge ep-post">POST</span></td>
+        <td><code>/recommend/similar</code></td>
+        <td>Calculates pairwise similarity matrix and returns top-K related papers.</td>
+      </tr>
+      <tr>
+        <td>Python AI</td>
+        <td><span class="endpoint-badge ep-post">POST</span></td>
+        <td><code>/sync-catalog</code></td>
+        <td>Reloads MySQL catalog from Spring Boot and re-fits TF-IDF vectorizer.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section 6 -->
+  <h2>6. Database Schema Definition</h2>
+  <div class="highlight-grid">
+    <div class="highlight-card">
+      <h4>Table: papers (MySQL)</h4>
+      <p>
+        <code>id (BIGINT PK AUTO_INCREMENT)</code><br>
+        <code>title (VARCHAR 500)</code><br>
+        <code>authors (VARCHAR 1000)</code><br>
+        <code>year (INT)</code><br>
+        <code>abstract_text (LONGTEXT)</code><br>
+        <code>doi (VARCHAR 255)</code><br>
+        <code>field (VARCHAR 255), field_id (VARCHAR 100)</code><br>
+        <code>venue (VARCHAR 255), topic_tag (VARCHAR 255)</code><br>
+        <code>citations (INT), citation_label (VARCHAR 50)</code><br>
+        <code>open_access (BOOLEAN), pdf_url (VARCHAR 500)</code>
+      </p>
+    </div>
+    <div class="highlight-card">
+      <h4>Table: users (MySQL)</h4>
+      <p>
+        <code>id (BIGINT PK AUTO_INCREMENT)</code><br>
+        <code>name (VARCHAR 255)</code><br>
+        <code>email (VARCHAR 255 UNIQUE)</code><br>
+        <code>password (VARCHAR 255)</code><br>
+        <code>institution (VARCHAR 255)</code><br>
+        <code>department (VARCHAR 255)</code><br>
+        <code>created_at (TIMESTAMP)</code>
+      </p>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 7 -->
+  <h2>7. Project Completion Audit & Production Roadmap</h2>
+  <p>
+    The following checklist details the current state of ResearchNest against all functional requirements, identifying completed capabilities and optional enhancements for production deployment:
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Feature / Milestone</th>
+        <th>Status</th>
+        <th>Implementation Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>AI Recommendation Engine</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>TF-IDF vector space, centroid modeling, and explainability reasoning live in Python FastAPI (:8000).</td>
+      </tr>
+      <tr>
+        <td><strong>Spring Boot MySQL Backend</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>Full REST API, JPA Repository, DataInitializer seeding 12 landmark papers, auto-syncing to AI service.</td>
+      </tr>
+      <tr>
+        <td><strong>Explore & Saved Papers Sync</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>Saved papers remain visible in explore feed with active purple bookmark; immediately synced to Saved stacks.</td>
+      </tr>
+      <tr>
+        <td><strong>Dynamic KPI Analytics Ribbon</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>Real-time Saved count, Papers Explored, dynamic Avg AI Match %, Reading Streak, Citations, and Catalog count.</td>
+      </tr>
+      <tr>
+        <td><strong>Interactive Calendar & Reading Queue</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>7-column responsive calendar grid with today indicators and dynamic saved reading queue.</td>
+      </tr>
+      <tr>
+        <td><strong>Live Scholarly Literature Stream</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>Dual feed mode: switch between internal MySQL catalog and 250M+ live OpenAlex publications.</td>
+      </tr>
+      <tr>
+        <td><strong>Paper Modal, Key Takeaways & BibTeX</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>Rich detail modal with AI takeaways, similar papers recommendation, BibTeX exporter, and notes editor.</td>
+      </tr>
+      <tr>
+        <td><strong>Saved Collections & Reading Status</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>Create custom research stacks, track reading progress (Want to Read / In Progress / Completed).</td>
+      </tr>
+      <tr>
+        <td><strong>User Authentication Flow</strong></td>
+        <td><span class="status-tag-done">Completed</span></td>
+        <td>Login and Registration pages with institutional profile attributes, integrated with backend AuthController.</td>
+      </tr>
+      <tr>
+        <td><strong>Admin Paper Management Portal</strong></td>
+        <td><span class="status-tag-next">Recommended Next</span></td>
+        <td>Backend has full CRUD endpoints (POST/PUT/DELETE /api/papers); a dedicated web UI view will allow faculty to manage catalog from the browser.</td>
+      </tr>
+      <tr>
+        <td><strong>Transformer Embeddings (SciBERT)</strong></td>
+        <td><span class="status-tag-next">Future Phase 2</span></td>
+        <td>Optional upgrade from TF-IDF to dense vector embeddings using HuggingFace allenai/specter2 with Milvus/Pinecone vector DB.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer-note">
+    <strong>ResearchNest Engineering Documentation</strong> · Generated for Academic Evaluation & Demonstration · Version 1.0.0
+  </div>
+
+</body>
+</html>
