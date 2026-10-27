@@ -4429,19 +4429,22 @@ h1 {
   background: transparent;
   color: var(--color-muted);
   cursor: pointer;
-  padding: 3px;
-  border-radius: 4px;
-  transition: color 120ms ease;
+  padding: 5px;
+  border-radius: 6px;
+  transition: all 140ms ease;
   display: grid;
   place-items: center;
 }
 
 .card-bookmark-btn:hover {
   color: var(--color-accent);
+  background: rgba(124, 58, 237, 0.08);
 }
 
-.card-bookmark-saved {
-  color: var(--color-accent);
+.card-bookmark-saved,
+.card-bookmarked {
+  color: var(--color-accent) !important;
+  background: rgba(124, 58, 237, 0.12) !important;
 }
 
 .card-paper-title {
@@ -4491,59 +4494,75 @@ h1 {
   border-radius: 6px;
 }
 
-.card-footer-row {
+.card-footer-row,
+.card-footer-metrics {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding-top: 12px;
+  gap: 12px;
+  padding-top: 14px;
+  margin-top: auto;
   border-top: 1px dashed var(--pill-border);
 }
 
-.card-badges-left {
+.card-badges-left,
+.card-metrics-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.card-citations-badge {
+.card-citations-badge,
+.metric-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.72rem;
+  gap: 5px;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--color-muted);
 }
 
-.card-oa-pill {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #047857;
-  background: #ecfdf5;
-  padding: 2px 6px;
-  border-radius: 4px;
+.card-oa-pill,
+.metric-oa-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 750;
+  color: #0284c7;
+  background: #f0f9ff;
+  border: 1px solid rgba(2, 132, 199, 0.25);
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
 }
 
-[data-theme="dark"] .card-oa-pill {
-  background: rgba(4, 120, 87, 0.25);
-  color: #34d399;
+[data-theme="dark"] .card-oa-pill,
+[data-theme="dark"] .metric-oa-badge {
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.16);
+  border-color: rgba(56, 189, 248, 0.32);
 }
 
-.card-read-button {
+.card-read-button,
+.card-read-link {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   background: transparent;
   border: 0;
   color: var(--color-accent);
-  font-size: 0.82rem;
-  font-weight: 650;
+  font-size: 0.8rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 120ms ease;
+  transition: all 140ms ease;
+  white-space: nowrap;
 }
 
-.card-read-button:hover {
+.card-read-button:hover,
+.card-read-link:hover {
   transform: translateX(2px);
+  gap: 7px;
 }
 
 /* 5. Utility Column: Calendar & Activity Feed */
@@ -4565,22 +4584,38 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
-.calendar-widget-title {
-  font-size: 0.94rem;
-  font-weight: 750;
-  color: var(--color-ink);
-  margin: 0;
-}
-
-.calendar-nav-controls {
+.calendar-title-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
+.calendar-title,
+.calendar-widget-title {
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: var(--color-ink);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.calendar-month-nav,
+.calendar-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.cal-nav-btn,
 .calendar-nav-btn {
   width: 24px;
   height: 24px;
@@ -4592,17 +4627,36 @@ h1 {
   place-items: center;
   cursor: pointer;
   padding: 0;
+  transition: all 120ms ease;
 }
 
+.cal-nav-btn:hover,
+.calendar-nav-btn:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.calendar-current-label,
 .calendar-month-name {
   font-size: 0.77rem;
   font-weight: 650;
   color: var(--color-ink);
+  margin-right: 2px;
+}
+
+/* 7-Column Calendar Grid Structure */
+.calendar-mini-grid,
+.calendar-days-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 4px;
+  text-align: center;
+  width: 100%;
 }
 
 .calendar-weekdays-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
   text-align: center;
   font-size: 0.7rem;
   font-weight: 600;
@@ -4610,84 +4664,93 @@ h1 {
   margin-bottom: 6px;
 }
 
-.calendar-days-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+.cal-header-cell {
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--color-muted);
+  padding: 4px 0 6px;
   text-align: center;
-  font-size: 0.75rem;
 }
 
+.cal-day-cell,
 .cal-day {
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
+  aspect-ratio: 1;
+  max-height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
   color: var(--color-ink);
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 120ms ease;
   position: relative;
+  margin: auto;
+  width: 100%;
 }
 
+.cal-day-cell:hover,
 .cal-day:hover {
   background: var(--pill-bg);
 }
 
+.cal-cell-muted,
 .cal-day-muted {
   color: var(--color-muted);
-  opacity: 0.45;
+  opacity: 0.35;
 }
 
+.cal-cell-today,
 .cal-day-today {
-  background: #252849 !important;
+  background: var(--color-accent) !important;
   color: #ffffff !important;
-  font-weight: 700;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
 }
 
-[data-theme="dark"] .cal-day-today {
-  background: #6366f1 !important;
-  color: #ffffff !important;
-}
-
+.cal-note-dot,
 .cal-day-has-note::after {
   content: '';
   position: absolute;
   bottom: 2px;
-  width: 3px;
-  height: 3px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: #a855f7;
+}
+
+.cal-cell-today .cal-note-dot {
+  background: #ffffff;
 }
 
 .calendar-footer-legend {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  margin-top: 12px;
-  font-size: 0.7rem;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--pill-border);
+  font-size: 0.72rem;
   color: var(--color-muted);
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .legend-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
 .legend-dot-today {
-  background: #252849;
-}
-
-[data-theme="dark"] .legend-dot-today {
-  background: #6366f1;
+  background: var(--color-accent);
 }
 
 .legend-dot-note {

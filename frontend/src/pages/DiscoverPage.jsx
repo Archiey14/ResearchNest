@@ -41,7 +41,7 @@ export default function DiscoverPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [savedIds, setSavedIds] = useState(() => {
     const stored = localStorage.getItem("researchnest_saved_ids");
-    return stored ? new Set(JSON.parse(stored)) : new Set(["paper-1", "paper-4", "paper-8"]);
+    return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
   });
   const [activeModalPaper, setActiveModalPaper] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
@@ -65,15 +65,61 @@ export default function DiscoverPage() {
     };
   }, [searchQuery, selectedField]);
 
-  function toggleSavePaper(id) {
+  useEffect(() => {
+    function onSavedUpdated() {
+      const stored = localStorage.getItem("researchnest_saved_ids");
+      if (stored) {
+        setSavedIds(new Set(JSON.parse(stored).map(String)));
+      }
+    }
+    window.addEventListener("researchnest:saved_updated", onSavedUpdated);
+    window.addEventListener("storage", onSavedUpdated);
+    return () => {
+      window.removeEventListener("researchnest:saved_updated", onSavedUpdated);
+      window.removeEventListener("storage", onSavedUpdated);
+    };
+  }, []);
+
+  function toggleSavePaper(paperOrId) {
+    const id = typeof paperOrId === "object" ? paperOrId.id : paperOrId;
+    const strId = String(id);
+    const targetPaper =
+      typeof paperOrId === "object"
+        ? paperOrId
+        : papers.find((p) => String(p.id) === strId);
+
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      const isSaving = !next.has(strId);
+      if (isSaving) {
+        next.add(strId);
       } else {
-        next.add(id);
+        next.delete(strId);
+        next.delete(Number(id));
       }
-      localStorage.setItem("researchnest_saved_ids", JSON.stringify([...next]));
+      const arr = Array.from(next).map(String);
+      localStorage.setItem("researchnest_saved_ids", JSON.stringify(arr));
+
+      if (targetPaper) {
+        try {
+          const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
+          let pool = storedPool ? JSON.parse(storedPool) : [];
+          if (isSaving) {
+            if (!pool.some((p) => String(p.id) === strId)) {
+              pool.push(targetPaper);
+            }
+          } else {
+            pool = pool.filter((p) => String(p.id) !== strId);
+          }
+          localStorage.setItem("researchnest_saved_papers_pool", JSON.stringify(pool));
+        } catch (e) {
+          console.warn("Could not update saved papers pool:", e);
+        }
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("researchnest:saved_updated", { detail: { id: strId, isSaving } })
+      );
       return next;
     });
   }
@@ -326,7 +372,7 @@ export default function DiscoverPage() {
       ) : (
         <div className="discover-papers-grid">
           {filteredPapers.map((paper) => {
-            const isSaved = savedIds.has(paper.id);
+            const isSaved = savedIds.has(String(paper.id)) || savedIds.has(Number(paper.id));
             return (
               <article
                 key={paper.id}
@@ -341,12 +387,13 @@ export default function DiscoverPage() {
                   </div>
                   <button
                     type="button"
-                    className={`card-bookmark-btn ${isSaved ? "card-bookmarked" : ""}`}
+                    className={`card-bookmark-btn ${isSaved ? "card-bookmark-saved card-bookmarked" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleSavePaper(paper.id);
+                      toggleSavePaper(paper);
                     }}
                     aria-label={isSaved ? "Remove from stack" : "Save to stack"}
+                    title={isSaved ? "Remove from stack" : "Save to stack"}
                   >
                     <Bookmark size={17} fill={isSaved ? "currentColor" : "none"} />
                   </button>
@@ -427,8 +474,8 @@ export default function DiscoverPage() {
         <PaperModal
           paper={activeModalPaper}
           onClose={() => setActiveModalPaper(null)}
-          isSaved={savedIds.has(activeModalPaper.id)}
-          onToggleSave={toggleSavePaper}
+          isSaved={savedIds.has(String(activeModalPaper.id)) || savedIds.has(Number(activeModalPaper.id))}
+          onToggleSave={() => toggleSavePaper(activeModalPaper)}
           onSelectPaper={(p) => setActiveModalPaper(p)}
         />
       )}

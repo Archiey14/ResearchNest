@@ -130,16 +130,16 @@ class PaperRecommendationEngine:
         scored_candidates = [
             (idx, float(candidate_scores[idx]))
             for idx in range(len(self.papers))
-            if idx not in saved_set
         ]
 
-        scored_candidates = sorted(scored_candidates, key=lambda x: x[1], reverse=True)[:top_k]
+        scored_candidates = sorted(scored_candidates, key=lambda x: x[1], reverse=True)[:max(top_k, len(self.papers))]
 
         max_cand_raw = scored_candidates[0][1] if scored_candidates and scored_candidates[0][1] > 0 else 1.0
 
         recommendations = []
         for rank, (cand_idx, overall_score) in enumerate(scored_candidates):
             cand_paper = self.papers[cand_idx]
+            is_saved = cand_idx in saved_set
 
             cand_vec = self.tfidf_matrix[cand_idx]
             pairwise_with_saved = cosine_similarity(cand_vec, saved_vectors).flatten()
@@ -147,18 +147,22 @@ class PaperRecommendationEngine:
             best_saved_paper = self.papers[saved_indices[best_saved_rel_idx]]
 
             rel_score = overall_score / max_cand_raw if max_cand_raw > 0 else 0.8
-            match_pct = int(round(86 + (rel_score * 12) - (rank * 2)))
-            match_pct = max(75, min(98, match_pct))
-
-            explanation = (
-                f"Recommended based on your saved paper \"{best_saved_paper.get('title')}\" "
-                f"({best_saved_paper.get('field')})"
-            )
+            if is_saved:
+                match_pct = 98
+                explanation = f"Saved in your stack · Core anchor in {cand_paper.get('field', 'your research')}"
+            else:
+                match_pct = int(round(86 + (rel_score * 12) - (rank * 2)))
+                match_pct = max(75, min(97, match_pct))
+                explanation = (
+                    f"Recommended based on your saved paper \"{best_saved_paper.get('title')}\" "
+                    f"({best_saved_paper.get('field')})"
+                )
 
             recommendations.append({
                 "paper": cand_paper,
                 "score": round(overall_score, 4),
                 "matchPercentage": f"{match_pct}% Match",
+                "isSaved": is_saved,
                 "matchedWith": {
                     "id": best_saved_paper.get("id"),
                     "title": best_saved_paper.get("title"),

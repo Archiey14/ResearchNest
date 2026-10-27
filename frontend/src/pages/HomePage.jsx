@@ -58,7 +58,7 @@ export default function HomePage() {
   // User saved paper IDs
   const [savedPaperIds, setSavedPaperIds] = useState(() => {
     const stored = localStorage.getItem("researchnest_saved_ids");
-    return stored ? new Set(JSON.parse(stored)) : new Set([1, 4, 8]);
+    return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
   });
 
   // Dynamic user activities & reading history
@@ -95,7 +95,7 @@ export default function HomePage() {
       .catch((err) => console.warn("Failed to fetch current user:", err));
   }, []);
 
-  // Listen for real-time activity and reading history updates
+  // Listen for real-time activity, reading history, and saved paper updates
   useEffect(() => {
     function onActivityUpdate() {
       setActivities(activityService.getActivities());
@@ -103,12 +103,22 @@ export default function HomePage() {
     function onHistoryUpdate() {
       setReadingHistory(activityService.getReadingHistory());
     }
+    function onSavedUpdated() {
+      const stored = localStorage.getItem("researchnest_saved_ids");
+      if (stored) {
+        setSavedPaperIds(new Set(JSON.parse(stored).map(String)));
+      }
+    }
 
     window.addEventListener("researchnest:activity", onActivityUpdate);
     window.addEventListener("researchnest:history", onHistoryUpdate);
+    window.addEventListener("researchnest:saved_updated", onSavedUpdated);
+    window.addEventListener("storage", onSavedUpdated);
     return () => {
       window.removeEventListener("researchnest:activity", onActivityUpdate);
       window.removeEventListener("researchnest:history", onHistoryUpdate);
+      window.removeEventListener("researchnest:saved_updated", onSavedUpdated);
+      window.removeEventListener("storage", onSavedUpdated);
     };
   }, []);
 
@@ -176,59 +186,86 @@ export default function HomePage() {
   }
 
   function toggleSavePaper(id) {
+    const strId = String(id);
+    const activeList = feedMode === "scholarly" ? scholarlyPapers : catalogPapers;
+    const targetPaper =
+      activeList.find((p) => String(p.id) === strId) ||
+      catalogPapers.find((p) => String(p.id) === strId) ||
+      scholarlyPapers.find((p) => String(p.id) === strId);
+
     setSavedPaperIds((prev) => {
       const next = new Set(prev);
-      const isSaving = !next.has(id);
+      const isSaving = !next.has(strId);
       if (isSaving) {
-        next.add(id);
+        next.add(strId);
       } else {
-        next.delete(id);
+        next.delete(strId);
+        next.delete(Number(id));
       }
-      localStorage.setItem("researchnest_saved_ids", JSON.stringify([...next]));
-
-      const activeList = feedMode === "scholarly" ? scholarlyPapers : catalogPapers;
-      const targetPaper = activeList.find((p) => String(p.id) === String(id));
+      const arr = Array.from(next).map(String);
+      localStorage.setItem("researchnest_saved_ids", JSON.stringify(arr));
 
       if (targetPaper) {
-        if (isSaving) {
-          activityService.logActivity(
-            "Saved paper to Stack",
-            targetPaper.title?.length > 40 ? `${targetPaper.title.slice(0, 40)}...` : targetPaper.title,
-            "save",
-            "purple"
-          );
-          // If in scholarly mode, persist live OpenAlex paper to Spring Boot MySQL backend
-          if (feedMode === "scholarly") {
-            papersService
-              .createPaper({
-                title: targetPaper.title,
-                authors: targetPaper.authors,
-                year: targetPaper.year,
-                abstractText: targetPaper.abstract || targetPaper.abstractText,
-                doi: targetPaper.doi,
-                field: targetPaper.field,
-                fieldId: targetPaper.fieldId,
-                venue: targetPaper.venue,
-                topicTag: targetPaper.topicTag,
-                citations: targetPaper.citations,
-                citationLabel: targetPaper.citationLabel,
-                openAccess: targetPaper.openAccess,
-                pdfUrl: targetPaper.pdfUrl,
-                readingTime: targetPaper.readingTime,
-              })
-              .catch((err) => console.warn("Could not persist scholarly paper:", err));
+        try {
+          const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
+          let pool = storedPool ? JSON.parse(storedPool) : [];
+          if (isSaving) {
+            if (!pool.some((p) => String(p.id) === strId)) {
+              pool.push(targetPaper);
+            }
+          } else {
+            pool = pool.filter((p) => String(p.id) !== strId);
           }
-        } else {
-          activityService.logActivity(
-            "Removed paper from Stack",
-            targetPaper.title?.length > 40 ? `${targetPaper.title.slice(0, 40)}...` : targetPaper.title,
-            "save",
-            "peach"
-          );
+          localStorage.setItem("researchnest_saved_papers_pool", JSON.stringify(pool));
+        } catch (e) {
+          console.warn("Could not update saved papers pool:", e);
         }
       }
+
+      window.dispatchEvent(
+        new CustomEvent("researchnest:saved_updated", { detail: { id: strId, isSaving } })
+      );
       return next;
     });
+
+    if (targetPaper) {
+      const isSaving = !savedPaperIds.has(strId);
+      if (isSaving) {
+        activityService.logActivity(
+          "Saved paper to Stack",
+          targetPaper.title?.length > 40 ? `${targetPaper.title.slice(0, 40)}...` : targetPaper.title,
+          "save",
+          "purple"
+        );
+        if (feedMode === "scholarly") {
+          papersService
+            .createPaper({
+              title: targetPaper.title,
+              authors: targetPaper.authors,
+              year: targetPaper.year,
+              abstractText: targetPaper.abstract || targetPaper.abstractText,
+              doi: targetPaper.doi,
+              field: targetPaper.field,
+              fieldId: targetPaper.fieldId,
+              venue: targetPaper.venue,
+              topicTag: targetPaper.topicTag,
+              citations: targetPaper.citations,
+              citationLabel: targetPaper.citationLabel,
+              openAccess: targetPaper.openAccess,
+              pdfUrl: targetPaper.pdfUrl,
+              readingTime: targetPaper.readingTime,
+            })
+            .catch((err) => console.warn("Could not persist scholarly paper:", err));
+        }
+      } else {
+        activityService.logActivity(
+          "Removed paper from Stack",
+          targetPaper.title?.length > 40 ? `${targetPaper.title.slice(0, 40)}...` : targetPaper.title,
+          "save",
+          "peach"
+        );
+      }
+    }
   }
 
   function handleTopicClick(topicId) {
@@ -244,7 +281,10 @@ export default function HomePage() {
     const totalSaved = savedPaperIds.size;
     const streakDays = activityService.getReadingStreak();
 
-    const savedPapersList = catalogPapers.filter((p) => savedPaperIds.has(p.id));
+    const allKnown = [...catalogPapers, ...scholarlyPapers];
+    const savedPapersList = allKnown.filter(
+      (p) => savedPaperIds.has(String(p.id)) || savedPaperIds.has(Number(p.id))
+    );
     const savedCitations = savedPapersList.reduce((acc, p) => acc + (p.citations || 0), 0);
     const totalDbCitations = backendStats.totalCitations || 399570;
 
@@ -256,6 +296,20 @@ export default function HomePage() {
         : totalDbCitations >= 1000
         ? `${(totalDbCitations / 1000).toFixed(1)}k`
         : String(totalDbCitations);
+
+    // Dynamic average AI match percentage
+    let avgMatch = "96%";
+    if (aiRecommendations.length > 0) {
+      const pcts = aiRecommendations
+        .map((r) => {
+          const m = r.matchPercentage?.match(/(\d+)%/);
+          return m ? parseInt(m[1], 10) : null;
+        })
+        .filter((n) => n !== null);
+      if (pcts.length > 0) {
+        avgMatch = `${Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length)}%`;
+      }
+    }
 
     return [
       {
@@ -275,7 +329,7 @@ export default function HomePage() {
       {
         id: "match",
         label: "Avg AI Match",
-        value: "95%",
+        value: avgMatch,
         trend: "Vector similarity",
         trendType: "up",
       },
@@ -301,7 +355,7 @@ export default function HomePage() {
         trendType: "neutral",
       },
     ];
-  }, [savedPaperIds, readingHistory, catalogPapers, backendStats]);
+  }, [savedPaperIds, readingHistory, catalogPapers, scholarlyPapers, backendStats, aiRecommendations]);
 
   // Real dynamic Topic Focus distribution computed from database catalog
   const dynamicTopicStages = useMemo(() => {
@@ -338,7 +392,7 @@ export default function HomePage() {
   // Real dynamic Reading Queue from saved papers
   const dynamicReadingQueue = useMemo(() => {
     const pool = catalogPapers.length > 0 ? catalogPapers : activePapersSource;
-    const saved = pool.filter((p) => savedPaperIds.has(p.id));
+    const saved = pool.filter((p) => savedPaperIds.has(String(p.id)) || savedPaperIds.has(Number(p.id)));
     const queuePapers = saved.length > 0 ? saved.slice(0, 3) : pool.slice(0, 3);
 
     return queuePapers.map((p, idx) => ({
@@ -383,8 +437,15 @@ export default function HomePage() {
       });
 
       list.sort((a, b) => {
-        const rankA = aiRankMap.has(String(a.id)) ? aiRankMap.get(String(a.id)) : 999;
-        const rankB = aiRankMap.has(String(b.id)) ? aiRankMap.get(String(b.id)) : 999;
+        const isSavedA = savedPaperIds.has(String(a.id)) || savedPaperIds.has(Number(a.id));
+        const isSavedB = savedPaperIds.has(String(b.id)) || savedPaperIds.has(Number(b.id));
+
+        const rankA = aiRankMap.has(String(a.id))
+          ? aiRankMap.get(String(a.id))
+          : isSavedA ? 0 : 999;
+        const rankB = aiRankMap.has(String(b.id))
+          ? aiRankMap.get(String(b.id))
+          : isSavedB ? 0 : 999;
         return rankA - rankB;
       });
     } else if (activeTab === "latest") {
@@ -750,7 +811,7 @@ export default function HomePage() {
           {/* Curated Paper Cards Grid */}
           <div className="curated-papers-grid">
             {displayedPapers.map((paper) => {
-              const isSaved = savedPaperIds.has(paper.id);
+              const isSaved = savedPaperIds.has(String(paper.id)) || savedPaperIds.has(Number(paper.id));
               const recInfo = aiRecommendations.find(
                 (r) => String(r.paper?.id) === String(paper.id)
               );

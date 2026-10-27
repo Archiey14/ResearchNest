@@ -33,7 +33,7 @@ export default function SavedPapersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [savedIds, setSavedIds] = useState(() => {
     const stored = localStorage.getItem("researchnest_saved_ids");
-    return stored ? new Set(JSON.parse(stored)) : new Set(mockPapers.map((p) => p.id));
+    return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
   });
   const [activeModalPaper, setActiveModalPaper] = useState(null);
   const [showNewStackModal, setShowNewStackModal] = useState(false);
@@ -47,15 +47,50 @@ export default function SavedPapersPage() {
     });
   }, []);
 
+  // Listen for real-time save updates across tabs and pages
+  useEffect(() => {
+    function onSavedUpdated() {
+      const stored = localStorage.getItem("researchnest_saved_ids");
+      if (stored) {
+        setSavedIds(new Set(JSON.parse(stored).map(String)));
+      }
+    }
+    window.addEventListener("researchnest:saved_updated", onSavedUpdated);
+    window.addEventListener("storage", onSavedUpdated);
+    return () => {
+      window.removeEventListener("researchnest:saved_updated", onSavedUpdated);
+      window.removeEventListener("storage", onSavedUpdated);
+    };
+  }, []);
+
   function toggleSavePaper(id) {
+    const strId = String(id);
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      const isSaving = !next.has(strId);
+      if (isSaving) {
+        next.add(strId);
       } else {
-        next.add(id);
+        next.delete(strId);
+        next.delete(Number(id));
       }
-      localStorage.setItem("researchnest_saved_ids", JSON.stringify([...next]));
+      const arr = Array.from(next).map(String);
+      localStorage.setItem("researchnest_saved_ids", JSON.stringify(arr));
+
+      try {
+        const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
+        let pool = storedPool ? JSON.parse(storedPool) : [];
+        if (!isSaving) {
+          pool = pool.filter((p) => String(p.id) !== strId);
+        }
+        localStorage.setItem("researchnest_saved_papers_pool", JSON.stringify(pool));
+      } catch (e) {
+        console.warn("Could not update pool:", e);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("researchnest:saved_updated", { detail: { id: strId, isSaving } })
+      );
       return next;
     });
   }
@@ -97,7 +132,25 @@ export default function SavedPapersPage() {
 
   // Get papers in user's saved library
   const savedPapers = useMemo(() => {
-    return allPapers.filter((p) => savedIds.has(p.id));
+    let pool = [];
+    try {
+      const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
+      if (storedPool) pool = JSON.parse(storedPool);
+    } catch (e) {
+      console.warn("Could not read saved pool:", e);
+    }
+
+    const map = new Map();
+    [...mockPapers, ...allPapers, ...pool].forEach((p) => {
+      if (p && p.id != null) {
+        map.set(String(p.id), p);
+      }
+    });
+
+    const combined = Array.from(map.values());
+    return combined.filter(
+      (p) => savedIds.has(String(p.id)) || savedIds.has(Number(p.id))
+    );
   }, [allPapers, savedIds]);
 
   // Filtered papers based on active stack, status, and search query
@@ -359,7 +412,7 @@ export default function SavedPapersPage() {
         <PaperModal
           paper={activeModalPaper}
           onClose={() => setActiveModalPaper(null)}
-          isSaved={savedIds.has(activeModalPaper.id)}
+          isSaved={savedIds.has(String(activeModalPaper.id)) || savedIds.has(Number(activeModalPaper.id))}
           onToggleSave={toggleSavePaper}
         />
       )}
