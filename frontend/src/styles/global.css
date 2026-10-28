@@ -2874,6 +2874,85 @@ h1 {
   box-shadow: 0 3px 10px rgba(102, 85, 242, 0.28);
 }
 
+/* Google Auth & Social Sign-In */
+.auth-social-container {
+  width: 100%;
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.auth-google-gis-wrapper {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+}
+
+.auth-google-btn {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--theme-card-bg, #ffffff);
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.auth-google-btn:hover {
+  background: var(--theme-section-alt, #f7f8fc);
+  border-color: var(--color-accent, #6655f2);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .auth-google-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #f0efff;
+}
+
+[data-theme="dark"] .auth-google-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--color-accent, #6655f2);
+}
+
+.auth-google-icon {
+  flex-shrink: 0;
+}
+
+/* Divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 18px;
+  width: 100%;
+}
+
+.auth-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.auth-divider-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* Form Groups & Inputs */
 .auth-form {
   display: flex;
@@ -2903,6 +2982,23 @@ h1 {
   color: var(--color-muted);
   font-size: 0.74rem;
   font-weight: 500;
+}
+
+.auth-forgot-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 140ms ease;
+}
+
+.auth-forgot-link:hover {
+  text-decoration: underline;
+  opacity: 0.85;
 }
 
 .auth-input-wrapper {
@@ -3048,6 +3144,182 @@ h1 {
 
 .auth-notice-text {
   flex: 1;
+}
+
+.auth-notice-error {
+  background: rgba(225, 29, 72, 0.08) !important;
+  border: 1.5px solid rgba(225, 29, 72, 0.35) !important;
+  color: #be123c !important;
+}
+
+.auth-notice-error .auth-notice-icon {
+  color: #e11d48 !important;
+}
+
+[data-theme="dark"] .auth-notice-error {
+  background: rgba(225, 29, 72, 0.16) !important;
+  border-color: rgba(225, 29, 72, 0.45) !important;
+  color: #fda4af !important;
+}
+
+.auth-notice-success {
+  background: rgba(16, 185, 129, 0.08) !important;
+  border: 1.5px solid rgba(16, 185, 129, 0.35) !important;
+  color: #047857 !important;
+}
+
+.auth-notice-success .auth-notice-icon {
+  color: #10b981 !important;
+}
+
+[data-theme="dark"] .auth-notice-success {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  color: #a7f3d0 !important;
+}
+
+/* Back to Login Link */
+.auth-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+.auth-back-link:hover {
+  color: var(--color-accent);
+  transform: translateX(-2px);
+}
+
+/* Password Reset Step Progress Indicator */
+.auth-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 20px;
+  padding: 8px 12px;
+  background: var(--theme-section-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  gap: 8px;
+}
+
+.auth-step-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  opacity: 0.65;
+  transition: all 180ms ease;
+}
+
+.auth-step-pill.auth-step-active {
+  color: var(--color-accent);
+  opacity: 1;
+}
+
+.auth-step-number {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--color-border);
+  color: var(--color-muted);
+  transition: all 180ms ease;
+}
+
+.auth-step-pill.auth-step-active .auth-step-number {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+.auth-step-divider {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border);
+  border-radius: 2px;
+}
+
+/* OTP Input Specifics */
+.auth-otp-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.4em;
+  text-align: center;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+
+/* Resend / Helper row */
+.auth-resend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.auth-inline-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity 140ms ease;
+}
+
+.auth-inline-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.auth-inline-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* Success Card */
+.auth-success-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 12px 14px;
+  gap: 16px;
+}
+
+.auth-success-badge {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+[data-theme="dark"] .auth-success-badge {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
 }
 
 /* Switch & Legal Footers */
