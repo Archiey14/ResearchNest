@@ -20,7 +20,7 @@ public class User {
     private String email;
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
 
     @Column(length = 20)
@@ -39,6 +39,19 @@ public class User {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private LocalDateTime resetTokenExpiry;
 
+    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(length = 64)
+    private String twoFactorCodeHash;
+
+    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private LocalDateTime twoFactorCodeExpiry;
+
+    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Integer twoFactorAttempts = 0;
+
     private String institution = "Stanford University";
 
     private String department = "Computer Science & AI Lab";
@@ -55,6 +68,21 @@ public class User {
         this.email = email;
         this.password = password;
         this.authProvider = "LOCAL";
+        if (institution != null && !institution.isBlank()) {
+            this.institution = institution;
+        }
+        if (department != null && !department.isBlank()) {
+            this.department = department;
+        }
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public User(String name, String email, String authProvider, String googleId, String institution, String department) {
+        this.name = name;
+        this.email = email;
+        this.password = null;
+        this.authProvider = authProvider != null ? authProvider : "GOOGLE";
+        this.googleId = googleId;
         if (institution != null && !institution.isBlank()) {
             this.institution = institution;
         }
@@ -150,6 +178,33 @@ public class User {
 
     public void setResetTokenExpiry(LocalDateTime resetTokenExpiry) {
         this.resetTokenExpiry = resetTokenExpiry;
+    }
+
+    @JsonIgnore
+    public String getTwoFactorCodeHash() {
+        return twoFactorCodeHash;
+    }
+
+    public void setTwoFactorCodeHash(String twoFactorCodeHash) {
+        this.twoFactorCodeHash = twoFactorCodeHash;
+    }
+
+    @JsonIgnore
+    public LocalDateTime getTwoFactorCodeExpiry() {
+        return twoFactorCodeExpiry;
+    }
+
+    public void setTwoFactorCodeExpiry(LocalDateTime twoFactorCodeExpiry) {
+        this.twoFactorCodeExpiry = twoFactorCodeExpiry;
+    }
+
+    @JsonIgnore
+    public Integer getTwoFactorAttempts() {
+        return twoFactorAttempts != null ? twoFactorAttempts : 0;
+    }
+
+    public void setTwoFactorAttempts(Integer twoFactorAttempts) {
+        this.twoFactorAttempts = twoFactorAttempts;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -1,6 +1,9 @@
 package com.example.demo.controllers;
 
 import com.example.demo.models.User;
+import com.example.demo.services.AccountConflictException;
+import com.example.demo.services.GoogleTokenVerifierService;
+import com.example.demo.services.GoogleUserInfo;
 import com.example.demo.services.UserService;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,12 +28,22 @@ import java.util.Map;
 public class AuthController {
 
     private final UserService userService;
+    private final GoogleTokenVerifierService googleTokenVerifierService;
     private final String jwtSecret;
     private final long jwtExpirationMs;
     private final String activeProfile;
 
     public AuthController(UserService userService) {
         this(userService,
+             null,
+             "dev-secret-key-for-researchnest-local-development-only-min32bytes!",
+             86400000L,
+             "dev");
+    }
+
+    public AuthController(UserService userService, GoogleTokenVerifierService googleTokenVerifierService) {
+        this(userService,
+             googleTokenVerifierService,
              "dev-secret-key-for-researchnest-local-development-only-min32bytes!",
              86400000L,
              "dev");
@@ -39,10 +52,12 @@ public class AuthController {
     @Autowired
     public AuthController(
             UserService userService,
+            @Autowired(required = false) GoogleTokenVerifierService googleTokenVerifierService,
             @Value("${jwt.secret:dev-secret-key-for-researchnest-local-development-only-min32bytes!}") String jwtSecret,
             @Value("${jwt.expiration-ms:86400000}") long jwtExpirationMs,
             @Value("${spring.profiles.active:dev}") String activeProfile) {
         this.userService = userService;
+        this.googleTokenVerifierService = googleTokenVerifierService;
         this.jwtSecret = (jwtSecret != null && !jwtSecret.isBlank())
                 ? jwtSecret
                 : "dev-secret-key-for-researchnest-local-development-only-min32bytes!";
@@ -73,6 +88,30 @@ public class AuthController {
     public static class LoginRequest {
         public String email;
         public String password;
+    }
+
+    public static class Verify2faRequest {
+        public String email;
+        public String otp;
+    }
+
+    public static class GoogleLoginRequest {
+        public String idToken;
+    }
+
+    public static class ForgotPasswordRequest {
+        public String email;
+    }
+
+    public static class VerifyOtpRequest {
+        public String email;
+        public String otp;
+    }
+
+    public static class ResetPasswordRequest {
+        public String email;
+        public String otp;
+        public String newPassword;
     }
 
     public static class TokenExpiredException extends Exception {
@@ -133,8 +172,52 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req) {
+        if (req == null || req.email == null || req.email.isBlank() || req.password == null || req.password.isBlank()) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Email and password are required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
+
         try {
             User authenticated = userService.authenticate(req.email, req.password);
+            userService.initiateLogin2fa(authenticated);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("twoFactorRequired", true);
+            response.put("email", authenticated.getEmail());
+            response.put("message", "A 6-digit verification code has been sent to your email.");
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        } catch (IllegalStateException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An error occurred during login. Please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    @PostMapping("/login/verify-2fa")
+    public ResponseEntity<?> verify2fa(@RequestBody Verify2faRequest req) {
+        if (req == null || req.email == null || req.email.isBlank()) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Email is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
+        if (req.otp == null || req.otp.isBlank()) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Verification code is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
+
+        try {
+            User authenticated = userService.verifyLogin2fa(req.email, req.otp);
             String token = generateToken(authenticated);
 
             Map<String, Object> response = new HashMap<>();
@@ -146,11 +229,62 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", "An error occurred during login. Please try again.");
+            error.put("error", "An error occurred during verification. Please try again.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest req) {
+        if (req == null || req.idToken == null || req.idToken.isBlank()) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "Google ID token is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        }
+
+        if (this.googleTokenVerifierService == null) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "Google authentication service is not configured or unavailable.");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(err);
+        }
+
+        try {
+            GoogleUserInfo userInfo = googleTokenVerifierService.verifyToken(req.idToken);
+            User user = userService.processGoogleUser(
+                    userInfo.getGoogleId(),
+                    userInfo.getEmail(),
+                    userInfo.isEmailVerified(),
+                    userInfo.getName()
+            );
+
+            String token = generateToken(user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("user", user);
+            response.put("message", "Google sign-in successful.");
+
+            return ResponseEntity.ok(response);
+        } catch (AccountConflictException e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", e.getMessage());
+            err.put("code", "ACCOUNT_CONFLICT");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(err);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        } catch (IllegalStateException e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(err);
+        } catch (Exception e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "An error occurred during Google sign-in. Please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
         }
     }
 
@@ -199,6 +333,99 @@ public class AuthController {
                     err.put("error", "User not found.");
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
                 });
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest req) {
+        if (req == null || req.email == null || req.email.isBlank()) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "Email is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        }
+
+        try {
+            userService.requestPasswordResetOtp(req.email);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "If an account with that email exists, a password reset OTP has been sent.");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        } catch (IllegalStateException e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(err);
+        } catch (Exception e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "An error occurred while processing your request. Please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+        }
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestBody VerifyOtpRequest req) {
+        if (req == null || req.email == null || req.email.isBlank()) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "Email is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        }
+        if (req.otp == null || req.otp.isBlank()) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "OTP is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        }
+
+        try {
+            boolean valid = userService.verifyOtp(req.email, req.otp);
+            if (!valid) {
+                Map<String, String> err = new HashMap<>();
+                err.put("error", "Invalid or expired OTP.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "OTP verified successfully.");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "An error occurred while verifying the OTP. Please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
+        if (req == null || req.email == null || req.email.isBlank()) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "Email is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        }
+        if (req.otp == null || req.otp.isBlank()) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "OTP is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        }
+        if (req.newPassword == null || req.newPassword.isBlank()) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "New password is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        }
+
+        try {
+            userService.resetPassword(req.email, req.otp, req.newPassword);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Password has been reset successfully. You can now log in with your new password.");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+        } catch (Exception e) {
+            Map<String, String> err = new HashMap<>();
+            err.put("error", "An error occurred while resetting your password. Please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+        }
     }
 
     /**

@@ -8,6 +8,8 @@ import com.example.demo.controllers.AuthController.TokenExpiredException;
 import com.example.demo.controllers.AuthController.TokenInvalidException;
 import com.example.demo.models.User;
 import com.example.demo.services.UserService;
+import com.example.demo.controllers.AuthController.Verify2faRequest;
+import com.example.demo.services.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,9 +40,39 @@ class AuthControllerTest {
     private UserService userService;
 
     private MockMvc mockMvc;
+    private MockEmailService mockEmailService;
+
+    static class MockEmailService implements EmailService {
+        private String lastRecipient;
+        private String lastOtp;
+
+        @Override
+        public boolean isConfigured() {
+            return true;
+        }
+
+        @Override
+        public void sendPasswordResetOtp(String toEmail, String otp) {
+            this.lastRecipient = toEmail;
+            this.lastOtp = otp;
+        }
+
+        @Override
+        public void sendLoginOtp(String toEmail, String otp) {
+            this.lastRecipient = toEmail;
+            this.lastOtp = otp;
+        }
+
+        @Override
+        public void sendGoogleAccountNotice(String toEmail) {
+            this.lastRecipient = toEmail;
+        }
+    }
 
     @BeforeEach
     void setUp() {
+        mockEmailService = new MockEmailService();
+        userService.setEmailService(mockEmailService);
         mockMvc = MockMvcBuilders.standaloneSetup(authController).build();
     }
 
@@ -71,8 +103,8 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("Login with valid credentials returns a signed token and user profile")
-    void testLoginSuccess() {
+    @DisplayName("Login with valid credentials initiates 2FA: returns twoFactorRequired without JWT")
+    void testLoginInitiatesTwoFactor() {
         LoginRequest req = new LoginRequest();
         req.email = "alex.chen@stanford.edu";
         req.password = "Password123!";
@@ -83,7 +115,37 @@ class AuthControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertNotNull(body);
-        assertTrue(body.containsKey("token"));
+        assertEquals(Boolean.TRUE, body.get("twoFactorRequired"));
+        assertEquals("alex.chen@stanford.edu", body.get("email"));
+        assertFalse(body.containsKey("token"), "Password-only response must NEVER contain a JWT token");
+        assertNotNull(mockEmailService.lastOtp, "Must generate and dispatch an OTP");
+        assertEquals(6, mockEmailService.lastOtp.length());
+    }
+
+    @Test
+    @DisplayName("Submitting verified 2FA OTP completes login and returns signed JWT")
+    void testVerify2faSuccess() {
+        LoginRequest req = new LoginRequest();
+        req.email = "alex.chen@stanford.edu";
+        req.password = "Password123!";
+        authController.login(req);
+
+        String otp = mockEmailService.lastOtp;
+        assertNotNull(otp);
+
+        Verify2faRequest verifyReq = new Verify2faRequest();
+        verifyReq.email = "alex.chen@stanford.edu";
+        verifyReq.otp = otp;
+
+        ResponseEntity<?> verifyResp = authController.verify2fa(verifyReq);
+        assertEquals(HttpStatus.OK, verifyResp.getStatusCode());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) verifyResp.getBody();
+        assertNotNull(body);
+        assertTrue(body.containsKey("token"), "Successful 2FA verification must return a JWT token");
+        assertTrue(body.containsKey("user"));
+        assertEquals("Login successful.", body.get("message"));
 
         User user = (User) body.get("user");
         assertNotNull(user);
