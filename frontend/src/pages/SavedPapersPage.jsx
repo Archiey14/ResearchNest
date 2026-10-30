@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   BookOpen,
   Bookmark,
   Check,
   Clock,
+  Compass,
   Download,
   ExternalLink,
   FileText,
@@ -19,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import PaperModal from "../components/PaperModal.jsx";
+import Pagination from "../components/Pagination.jsx";
 import { mockPapers, mockStacks } from "../data/mockPapers.js";
 import { papersService } from "../services/papersService.js";
 
@@ -36,23 +39,76 @@ export default function SavedPapersPage() {
     return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
   });
   const [activeModalPaper, setActiveModalPaper] = useState(null);
+  const [modalInitialTab, setModalInitialTab] = useState("overview");
   const [showNewStackModal, setShowNewStackModal] = useState(false);
   const [newStackName, setNewStackName] = useState("");
   const [newStackDesc, setNewStackDesc] = useState("");
   const [exportNotice, setExportNotice] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+
+  // Reset to first page when stack, status, or search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStackId, statusFilter, searchQuery]);
+
   useEffect(() => {
     papersService.getPapers().then((data) => {
-      if (data && data.length > 0) setAllPapers(data);
+      if (data && data.length > 0) {
+        setAllPapers((prev) => {
+          const map = new Map();
+          [...prev, ...data].forEach((p) => map.set(String(p.id), p));
+          return Array.from(map.values());
+        });
+      }
     });
+
+    // Check for any saved IDs not present in mockPapers or current dataset and fetch them from backend
+    try {
+      const stored = localStorage.getItem("researchnest_saved_ids");
+      if (stored) {
+        const ids = JSON.parse(stored);
+        if (Array.isArray(ids) && ids.length > 0) {
+          const knownIds = new Set(mockPapers.map((p) => String(p.id)));
+          const missingIds = ids.filter((id) => !knownIds.has(String(id)));
+          if (missingIds.length > 0) {
+            Promise.allSettled(missingIds.map((id) => papersService.getPaperById(id))).then((results) => {
+              const retrieved = results
+                .filter((r) => r.status === "fulfilled" && r.value)
+                .map((r) => r.value);
+              if (retrieved.length > 0) {
+                setAllPapers((prev) => {
+                  const map = new Map();
+                  [...prev, ...retrieved].forEach((p) => map.set(String(p.id), p));
+                  return Array.from(map.values());
+                });
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Could not retrieve missing saved papers:", e);
+    }
   }, []);
 
   // Listen for real-time save updates across tabs and pages
   useEffect(() => {
-    function onSavedUpdated() {
+    function onSavedUpdated(e) {
       const stored = localStorage.getItem("researchnest_saved_ids");
       if (stored) {
-        setSavedIds(new Set(JSON.parse(stored).map(String)));
+        try {
+          const parsed = JSON.parse(stored);
+          const newSet = new Set(parsed.map(String));
+          setSavedIds((prev) => {
+            if (prev.size === newSet.size && [...newSet].every((id) => prev.has(id))) {
+              return prev;
+            }
+            return newSet;
+          });
+        } catch (err) {}
       }
     }
     window.addEventListener("researchnest:saved_updated", onSavedUpdated);
@@ -63,8 +119,16 @@ export default function SavedPapersPage() {
     };
   }, []);
 
-  function toggleSavePaper(id) {
+  function toggleSavePaper(paperOrId) {
+    const id = typeof paperOrId === "object" ? paperOrId.id : paperOrId;
     const strId = String(id);
+    const targetPaper =
+      typeof paperOrId === "object"
+        ? paperOrId
+        : savedPapers.find((p) => String(p.id) === strId) ||
+          allPapers.find((p) => String(p.id) === strId) ||
+          mockPapers.find((p) => String(p.id) === strId);
+
     setSavedIds((prev) => {
       const next = new Set(prev);
       const isSaving = !next.has(strId);
@@ -80,7 +144,11 @@ export default function SavedPapersPage() {
       try {
         const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
         let pool = storedPool ? JSON.parse(storedPool) : [];
-        if (!isSaving) {
+        if (isSaving && targetPaper) {
+          if (!pool.some((p) => String(p.id) === strId)) {
+            pool.push(targetPaper);
+          }
+        } else {
           pool = pool.filter((p) => String(p.id) !== strId);
         }
         localStorage.setItem("researchnest_saved_papers_pool", JSON.stringify(pool));
@@ -141,9 +209,13 @@ export default function SavedPapersPage() {
     }
 
     const map = new Map();
-    [...mockPapers, ...allPapers, ...pool].forEach((p) => {
+    [...mockPapers, ...allPapers, ...pool].forEach((p, idx) => {
       if (p && p.id != null) {
-        map.set(String(p.id), p);
+        map.set(String(p.id), {
+          ...p,
+          stackId: p.stackId || (p.fieldId ? `stack-${p.fieldId}` : "stack-ai"),
+          readingStatus: p.readingStatus || (idx % 3 === 0 ? "completed" : idx % 3 === 1 ? "in-progress" : "want-to-read"),
+        });
       }
     });
 
@@ -152,6 +224,7 @@ export default function SavedPapersPage() {
       (p) => savedIds.has(String(p.id)) || savedIds.has(Number(p.id))
     );
   }, [allPapers, savedIds]);
+
 
   // Filtered papers based on active stack, status, and search query
   const displayedSavedPapers = useMemo(() => {
@@ -181,6 +254,12 @@ export default function SavedPapersPage() {
 
     return list;
   }, [savedPapers, selectedStackId, statusFilter, searchQuery]);
+
+  // Paginated saved papers slice
+  const paginatedSavedPapers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return displayedSavedPapers.slice(start, start + pageSize);
+  }, [displayedSavedPapers, currentPage, pageSize]);
 
   return (
     <div className="saved-page-shell">
@@ -293,7 +372,7 @@ export default function SavedPapersPage() {
         </aside>
 
         {/* Right Column: Papers Feed */}
-        <main className="saved-papers-content">
+        <main className="saved-papers-content" id="saved-papers-top">
           {/* Controls Bar */}
           <div className="saved-controls-bar">
             {/* Search inside saved */}
@@ -333,76 +412,139 @@ export default function SavedPapersPage() {
               <BookOpen size={44} className="empty-state-icon" />
               <h3>No papers found in this stack</h3>
               <p>Explore papers in the Discover catalog and click "Save to Stack" to bookmark them.</p>
+              <Link
+                to="/workspace/discover"
+                style={{
+                  marginTop: "14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  background: "linear-gradient(135deg, #7c3aed, #6366f1)",
+                  color: "#ffffff",
+                  padding: "9px 18px",
+                  borderRadius: "10px",
+                  fontWeight: "600",
+                  fontSize: "0.88rem",
+                  textDecoration: "none",
+                  boxShadow: "0 4px 14px rgba(124, 58, 237, 0.28)",
+                }}
+              >
+                <Compass size={16} />
+                <span>Explore Discover Catalog</span>
+              </Link>
             </div>
           ) : (
-            <div className="saved-papers-list">
-              {displayedSavedPapers.map((paper) => {
-                const note = localStorage.getItem(`researchnest_note_${paper.id}`);
-                return (
-                  <article
-                    key={paper.id}
-                    className="saved-paper-row-card"
-                    onClick={() => setActiveModalPaper(paper)}
-                  >
-                    <div className="saved-card-header">
-                      <div className="saved-tags-wrap">
-                        <span className="saved-field-badge">{paper.field}</span>
-                        <span className={`reading-status-pill status-${paper.readingStatus || "want-to-read"}`}>
-                          ● {paper.readingStatus === "completed" ? "Completed" : paper.readingStatus === "in-progress" ? "In Progress" : "Want to Read"}
-                        </span>
-                        {note && (
-                          <span className="saved-has-note-badge" title="Has personal note">
-                            📝 Note attached
+            <>
+              <div className="saved-papers-list">
+                {paginatedSavedPapers.map((paper) => {
+                  const note = localStorage.getItem(`researchnest_note_${paper.id}`);
+                  return (
+                    <article
+                      key={paper.id}
+                      className="saved-paper-row-card"
+                      onClick={() => setActiveModalPaper(paper)}
+                    >
+                      <div className="saved-card-header">
+                        <div className="saved-tags-wrap">
+                          <span className="saved-field-badge">{paper.field}</span>
+                          <span className={`reading-status-pill status-${paper.readingStatus || "want-to-read"}`}>
+                            ● {paper.readingStatus === "completed" ? "Completed" : paper.readingStatus === "in-progress" ? "In Progress" : "Want to Read"}
                           </span>
-                        )}
+                          {note && (
+                            <span className="saved-has-note-badge" title="Has personal note">
+                              📝 Note attached
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="saved-remove-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSavePaper(paper);
+                          }}
+                          title="Remove from saved stack"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="saved-remove-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleSavePaper(paper.id);
-                        }}
-                        title="Remove from saved stack"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
 
-                    <h3 className="saved-paper-title">{paper.title}</h3>
-                    <p className="saved-paper-authors">{paper.authors}</p>
-                    <p className="saved-paper-venue">
-                      <span>{paper.venue}</span>
-                      <span>·</span>
-                      <span>{paper.year}</span>
-                      <span>·</span>
-                      <span><Quote size={12} /> {paper.citationLabel}</span>
-                    </p>
+                      <h3 className="saved-paper-title">{paper.title}</h3>
+                      <p className="saved-paper-authors">{paper.authors}</p>
+                      <p className="saved-paper-venue">
+                        <span>{paper.venue}</span>
+                        <span>·</span>
+                        <span>{paper.year}</span>
+                        <span>·</span>
+                        <span><Quote size={12} /> {paper.citationLabel}</span>
+                      </p>
 
-                    <p className="saved-paper-abstract">{paper.abstract}</p>
+                      <p className="saved-paper-abstract">{paper.abstract}</p>
 
-                    {note && (
-                      <div className="saved-note-preview">
-                        <strong>My Note:</strong> {note}
+                      {note && (
+                        <div className="saved-note-preview">
+                          <strong>My Note:</strong> {note}
+                        </div>
+                      )}
+
+                      <div className="saved-row-footer">
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            className="saved-open-btn"
+                            onClick={() => {
+                              setModalInitialTab("overview");
+                              setActiveModalPaper(paper);
+                            }}
+                          >
+                            <span>Overview →</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalInitialTab("reader");
+                              setActiveModalPaper(paper);
+                            }}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              background: "linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(168, 85, 247, 0.12))",
+                              color: "#7c3aed",
+                              border: "1px solid rgba(124, 58, 237, 0.3)",
+                              padding: "4px 10px",
+                              borderRadius: "8px",
+                              fontSize: "0.76rem",
+                              fontWeight: "750",
+                              cursor: "pointer",
+                            }}
+                            title="Read full-text PDF with color-coded highlight tags & sticky notes"
+                          >
+                            <BookOpen size={12} />
+                            <span>Read PDF & Annotate</span>
+                          </button>
+                        </div>
+                        <span className="saved-time-indicator">
+                          <Clock size={12} /> {paper.readingTime}
+                        </span>
                       </div>
-                    )}
+                    </article>
+                  );
+                })}
+              </div>
 
-                    <div className="saved-row-footer">
-                      <button
-                        type="button"
-                        className="saved-open-btn"
-                        onClick={() => setActiveModalPaper(paper)}
-                      >
-                        <span>Open Abstract, Takeaways & Citation →</span>
-                      </button>
-                      <span className="saved-time-indicator">
-                        <Clock size={12} /> {paper.readingTime}
-                      </span>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+              {/* Saved Papers Pagination */}
+              <Pagination
+                currentPage={currentPage}
+                totalItems={displayedSavedPapers.length}
+                pageSize={pageSize}
+                pageSizeOptions={[4, 8, 12, 16]}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                itemLabel="saved papers"
+                scrollToElementId="saved-papers-top"
+              />
+            </>
           )}
         </main>
       </div>
@@ -411,6 +553,7 @@ export default function SavedPapersPage() {
       {activeModalPaper && (
         <PaperModal
           paper={activeModalPaper}
+          initialTab={modalInitialTab}
           onClose={() => setActiveModalPaper(null)}
           isSaved={savedIds.has(String(activeModalPaper.id)) || savedIds.has(Number(activeModalPaper.id))}
           onToggleSave={toggleSavePaper}

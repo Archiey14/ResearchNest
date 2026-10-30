@@ -22,10 +22,12 @@ import {
   Tag,
   TrendingDown,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import PaperModal from "../components/PaperModal.jsx";
-import { trendingTopics } from "../data/mockPapers.js";
+import Pagination from "../components/Pagination.jsx";
+import { mockPapers, trendingTopics } from "../data/mockPapers.js";
 import { papersService } from "../services/papersService.js";
 import { authService } from "../services/authService.js";
 import { activityService } from "../services/activityService.js";
@@ -35,14 +37,24 @@ import { apiRequest } from "../services/apiClient.js";
 export default function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [searchInput, setSearchInput] = useState(initialQuery);
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState("for-you");
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => authService.getStoredUser());
   const [feedMode, setFeedMode] = useState("catalog"); // "catalog" | "scholarly"
 
-  // Catalog papers from Spring Boot MySQL
-  const [catalogPapers, setCatalogPapers] = useState([]);
+  // Pagination state for curated feed
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
+
+  // Reset to first page when tab, topic, query, or feedMode changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedTopic, appliedSearchQuery, feedMode]);
+
+  // Catalog papers from Spring Boot MySQL (seeded with mock landmark papers)
+  const [catalogPapers, setCatalogPapers] = useState(mockPapers);
   // Live papers from OpenAlex / arXiv API
   const [scholarlyPapers, setScholarlyPapers] = useState([]);
   const [isFetchingScholarly, setIsFetchingScholarly] = useState(false);
@@ -71,6 +83,7 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [calendarMonth, setCalendarMonth] = useState("October 2026");
   const [activeModalPaper, setActiveModalPaper] = useState(null);
+  const [modalInitialTab, setModalInitialTab] = useState("overview");
 
   // Load Spring Boot MySQL catalog papers & stats
   useEffect(() => {
@@ -122,6 +135,13 @@ export default function HomePage() {
     };
   }, []);
 
+  // Sync search input and query when URL params change
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    setSearchInput(q);
+    setAppliedSearchQuery(q);
+  }, [searchParams]);
+
   // Fetch live scholarly papers from OpenAlex when scholarly mode is active or topic/search changes
   useEffect(() => {
     if (feedMode !== "scholarly") return;
@@ -130,7 +150,7 @@ export default function HomePage() {
     setIsFetchingScholarly(true);
 
     scholarlyService
-      .searchLivePapers(searchQuery, {
+      .searchLivePapers(appliedSearchQuery, {
         fieldId: selectedTopic,
         perPage: 12,
       })
@@ -145,7 +165,7 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, [feedMode, selectedTopic, searchQuery]);
+  }, [feedMode, selectedTopic, appliedSearchQuery]);
 
   // Request AI recommendation ranking for user whenever saved papers update
   useEffect(() => {
@@ -169,13 +189,15 @@ export default function HomePage() {
   }, [savedPaperIds]);
 
   function handleSearchSubmit(e) {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      setStatusMessage(`Displaying results for "${searchQuery.trim()}".`);
-      setSearchParams({ q: searchQuery.trim() });
+    if (e) e.preventDefault();
+    const query = searchInput.trim();
+    setAppliedSearchQuery(query);
+    if (query) {
+      setStatusMessage(`Displaying results for "${query}".`);
+      setSearchParams({ q: query });
       activityService.logActivity(
         "Searched literature",
-        `Query: "${searchQuery.trim()}"`,
+        `Query: "${query}"`,
         "stack",
         "blue"
       );
@@ -185,13 +207,23 @@ export default function HomePage() {
     }
   }
 
-  function toggleSavePaper(id) {
+  function handleClearSearch() {
+    setSearchInput("");
+    setAppliedSearchQuery("");
+    setStatusMessage("");
+    setSearchParams({});
+  }
+
+  function toggleSavePaper(paperOrId) {
+    const id = typeof paperOrId === "object" ? paperOrId.id : paperOrId;
     const strId = String(id);
-    const activeList = feedMode === "scholarly" ? scholarlyPapers : catalogPapers;
     const targetPaper =
-      activeList.find((p) => String(p.id) === strId) ||
-      catalogPapers.find((p) => String(p.id) === strId) ||
-      scholarlyPapers.find((p) => String(p.id) === strId);
+      typeof paperOrId === "object"
+        ? paperOrId
+        : displayedPapers.find((p) => String(p.id) === strId) ||
+          catalogPapers.find((p) => String(p.id) === strId) ||
+          scholarlyPapers.find((p) => String(p.id) === strId) ||
+          mockPapers.find((p) => String(p.id) === strId);
 
     setSavedPaperIds((prev) => {
       const next = new Set(prev);
@@ -419,8 +451,8 @@ export default function HomePage() {
       list = list.filter((paper) => paper.fieldId === selectedTopic);
     }
 
-    if (searchQuery.trim() && feedMode === "catalog") {
-      const q = searchQuery.toLowerCase();
+    if (appliedSearchQuery.trim() && feedMode === "catalog") {
+      const q = appliedSearchQuery.toLowerCase();
       list = list.filter(
         (paper) =>
           paper.title?.toLowerCase().includes(q) ||
@@ -455,7 +487,13 @@ export default function HomePage() {
     }
 
     return list;
-  }, [activePapersSource, activeTab, selectedTopic, searchQuery, feedMode, aiRecommendations]);
+  }, [activePapersSource, activeTab, selectedTopic, appliedSearchQuery, feedMode, aiRecommendations]);
+
+  // Paginated papers slice for the curated feed
+  const paginatedPapers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return displayedPapers.slice(start, start + pageSize);
+  }, [displayedPapers, currentPage, pageSize]);
 
   const firstName = currentUser?.name?.split(" ")[0] || "Researcher";
 
@@ -672,7 +710,36 @@ export default function HomePage() {
       {/* 4. Main Literature Discovery Section + Right-Hand Utility Widgets */}
       <div className="dashboard-content-split">
         {/* Left Primary Feed Column (70%) */}
-        <div className="feed-primary-column">
+        <div className="feed-primary-column" id="curated-feed-section">
+          {/* Dashboard Search Bar - Only filters on explicit Search button click or Enter */}
+          <form className="dashboard-search-bar-wrap" onSubmit={handleSearchSubmit} role="search">
+            <div className="dashboard-search-inner">
+              <Search size={18} className="dashboard-search-icon" aria-hidden="true" />
+              <input
+                type="text"
+                className="dashboard-search-input"
+                placeholder="Search research papers... (type query and click Search to view results)"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                aria-label="Search papers on dashboard"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  className="dashboard-clear-search-btn"
+                  onClick={handleClearSearch}
+                  aria-label="Clear search"
+                  title="Clear search"
+                >
+                  <X size={15} />
+                </button>
+              )}
+              <button type="submit" className="dashboard-search-btn">
+                <span>Search</span>
+              </button>
+            </div>
+          </form>
+
           {/* Topic Pills Strip */}
           <section className="topics-filter-strip" aria-label="Filter by research field">
             <button
@@ -810,7 +877,7 @@ export default function HomePage() {
 
           {/* Curated Paper Cards Grid */}
           <div className="curated-papers-grid">
-            {displayedPapers.map((paper) => {
+            {paginatedPapers.map((paper) => {
               const isSaved = savedPaperIds.has(String(paper.id)) || savedPaperIds.has(Number(paper.id));
               const recInfo = aiRecommendations.find(
                 (r) => String(r.paper?.id) === String(paper.id)
@@ -833,7 +900,7 @@ export default function HomePage() {
                         className={`card-bookmark-btn ${isSaved ? "card-bookmark-saved" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleSavePaper(paper.id);
+                          toggleSavePaper(paper);
                         }}
                         aria-label={isSaved ? "Remove from saved" : "Save paper"}
                         title={isSaved ? "Remove from saved" : "Save paper"}
@@ -879,15 +946,57 @@ export default function HomePage() {
                         <span className="metric-oa-badge">Open Access</span>
                       )}
                     </div>
-                    <span className="card-read-link">
-                      <span>Read paper</span>
-                      <ArrowRight size={13} aria-hidden="true" />
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalInitialTab("reader");
+                          setActiveModalPaper(paper);
+                        }}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          background: "linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(168, 85, 247, 0.12))",
+                          color: "#7c3aed",
+                          border: "1px solid rgba(124, 58, 237, 0.3)",
+                          padding: "4px 9px",
+                          borderRadius: "8px",
+                          fontSize: "0.74rem",
+                          fontWeight: "750",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Read full-text PDF with color-coded highlight tags & sticky notes"
+                      >
+                        <BookOpen size={12} />
+                        <span>Read PDF</span>
+                      </button>
+                      <span className="card-read-link">
+                        <span>Details</span>
+                        <ArrowRight size={13} aria-hidden="true" />
+                      </span>
+                    </div>
                   </div>
                 </article>
               );
             })}
           </div>
+
+          {/* Curated Feed Pagination */}
+          {displayedPapers.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalItems={displayedPapers.length}
+              pageSize={pageSize}
+              pageSizeOptions={[4, 6, 8, 12]}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="recommended papers"
+              scrollToElementId="curated-feed-section"
+            />
+          )}
 
           {displayedPapers.length === 0 && !isFetchingScholarly && (
             <div className="empty-state-notice">
@@ -897,7 +1006,7 @@ export default function HomePage() {
                 className="button button-secondary"
                 onClick={() => {
                   setSelectedTopic(null);
-                  setSearchQuery("");
+                  handleClearSearch();
                 }}
               >
                 Reset Filters
@@ -1038,8 +1147,9 @@ export default function HomePage() {
       {activeModalPaper && (
         <PaperModal
           paper={activeModalPaper}
+          initialTab={modalInitialTab}
           onClose={() => setActiveModalPaper(null)}
-          isSaved={savedPaperIds.has(activeModalPaper.id)}
+          isSaved={savedPaperIds.has(String(activeModalPaper.id))}
           onToggleSave={toggleSavePaper}
           onSelectPaper={(p) => setActiveModalPaper(p)}
         />

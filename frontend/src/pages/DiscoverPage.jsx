@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import PaperModal from "../components/PaperModal.jsx";
+import Pagination from "../components/Pagination.jsx";
 import { mockPapers, trendingTopics } from "../data/mockPapers.js";
 import { papersService } from "../services/papersService.js";
 
@@ -32,8 +33,10 @@ const quickPrompts = [
 export default function DiscoverPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q") || "";
-  const [searchQuery, setSearchQuery] = useState(queryParam);
-  const [selectedField, setSelectedField] = useState(searchParams.get("field") || "all");
+  const fieldParam = searchParams.get("field") || "all";
+  const [searchInput, setSearchInput] = useState(queryParam);
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState(queryParam);
+  const [selectedField, setSelectedField] = useState(fieldParam);
   const [sortBy, setSortBy] = useState("relevance");
   const [openAccessOnly, setOpenAccessOnly] = useState(false);
   const [yearFilter, setYearFilter] = useState("all");
@@ -44,13 +47,29 @@ export default function DiscoverPage() {
     return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
   });
   const [activeModalPaper, setActiveModalPaper] = useState(null);
+  const [modalInitialTab, setModalInitialTab] = useState("overview");
   const [copiedId, setCopiedId] = useState(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9);
+
+  useEffect(() => {
+    setSearchInput(queryParam);
+    setAppliedSearchQuery(queryParam);
+    setSelectedField(fieldParam);
+  }, [queryParam, fieldParam]);
+
+  // Reset to first page when any search, topic or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [appliedSearchQuery, selectedField, yearFilter, openAccessOnly, sortBy]);
 
   useEffect(() => {
     let active = true;
     setIsLoading(true);
     papersService
-      .getPapers({ search: searchQuery, field: selectedField })
+      .getPapers({ search: appliedSearchQuery, field: selectedField })
       .then((data) => {
         if (active && data) {
           setPapers(data);
@@ -63,13 +82,22 @@ export default function DiscoverPage() {
     return () => {
       active = false;
     };
-  }, [searchQuery, selectedField]);
+  }, [appliedSearchQuery, selectedField]);
 
   useEffect(() => {
     function onSavedUpdated() {
       const stored = localStorage.getItem("researchnest_saved_ids");
       if (stored) {
-        setSavedIds(new Set(JSON.parse(stored).map(String)));
+        try {
+          const parsed = JSON.parse(stored);
+          const newSet = new Set(parsed.map(String));
+          setSavedIds((prev) => {
+            if (prev.size === newSet.size && [...newSet].every((id) => prev.has(id))) {
+              return prev;
+            }
+            return newSet;
+          });
+        } catch (err) {}
       }
     }
     window.addEventListener("researchnest:saved_updated", onSavedUpdated);
@@ -125,23 +153,34 @@ export default function DiscoverPage() {
   }
 
   function handleSearchSubmit(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    const query = searchInput.trim();
+    setAppliedSearchQuery(query);
     const params = {};
-    if (searchQuery.trim()) params.q = searchQuery.trim();
+    if (query) params.q = query;
     if (selectedField !== "all") params.field = selectedField;
     setSearchParams(params);
   }
 
   function handlePromptClick(prompt) {
-    setSearchQuery(prompt);
+    setSearchInput(prompt);
+    setAppliedSearchQuery(prompt);
     setSearchParams({ q: prompt });
   }
 
   function handleFieldClick(fieldId) {
     setSelectedField(fieldId);
     const params = {};
-    if (searchQuery.trim()) params.q = searchQuery.trim();
+    if (appliedSearchQuery.trim()) params.q = appliedSearchQuery.trim();
     if (fieldId !== "all") params.field = fieldId;
+    setSearchParams(params);
+  }
+
+  function handleClearSearch() {
+    setSearchInput("");
+    setAppliedSearchQuery("");
+    const params = {};
+    if (selectedField !== "all") params.field = selectedField;
     setSearchParams(params);
   }
 
@@ -179,9 +218,9 @@ export default function DiscoverPage() {
       list = list.filter((p) => p.year < 2020);
     }
 
-    // Text search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
+    // Text search query - applied only when Search button is clicked or submitted
+    if (appliedSearchQuery.trim()) {
+      const q = appliedSearchQuery.toLowerCase().trim();
       list = list.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
@@ -203,7 +242,13 @@ export default function DiscoverPage() {
     }
 
     return list;
-  }, [searchQuery, selectedField, openAccessOnly, yearFilter, sortBy]);
+  }, [appliedSearchQuery, selectedField, openAccessOnly, yearFilter, sortBy]);
+
+  // Paginated publications slice
+  const paginatedPapers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredPapers.slice(start, start + pageSize);
+  }, [filteredPapers, currentPage, pageSize]);
 
   return (
     <div className="discover-page-shell">
@@ -226,18 +271,15 @@ export default function DiscoverPage() {
               type="text"
               className="discover-search-input"
               placeholder="Search across 12,000+ publications by concept, author, venue, or DOI..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               aria-label="Search papers"
             />
-            {searchQuery && (
+            {searchInput && (
               <button
                 type="button"
                 className="discover-clear-btn"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSearchParams({});
-                }}
+                onClick={handleClearSearch}
                 aria-label="Clear search"
               >
                 <X size={16} />
@@ -282,20 +324,20 @@ export default function DiscoverPage() {
       </div>
 
       {/* Controls & Facets Toolbar */}
-      <div className="discover-toolbar">
+      <div className="discover-toolbar" id="discover-catalog-results">
         <div className="toolbar-left">
           <span className="results-count-text">
-            Showing <strong>{filteredPapers.length}</strong> scientific publications
+            Showing <strong>{filteredPapers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</strong> –{" "}
+            <strong>{Math.min(filteredPapers.length, currentPage * pageSize)}</strong> of{" "}
+            <strong>{filteredPapers.length}</strong> scientific publications
           </span>
-          {searchQuery && (
+          {appliedSearchQuery && (
             <span className="active-query-badge">
-              Query: "{searchQuery}"
+              Query: "{appliedSearchQuery}"
               <button
                 type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSearchParams({});
-                }}
+                onClick={handleClearSearch}
+                title="Clear query"
               >
                 <X size={12} />
               </button>
@@ -359,7 +401,8 @@ export default function DiscoverPage() {
             type="button"
             className="button button-primary"
             onClick={() => {
-              setSearchQuery("");
+              setSearchInput("");
+              setAppliedSearchQuery("");
               setSelectedField("all");
               setOpenAccessOnly(false);
               setYearFilter("all");
@@ -370,109 +413,153 @@ export default function DiscoverPage() {
           </button>
         </div>
       ) : (
-        <div className="discover-papers-grid">
-          {filteredPapers.map((paper) => {
-            const isSaved = savedIds.has(String(paper.id)) || savedIds.has(Number(paper.id));
-            return (
-              <article
-                key={paper.id}
-                className="discover-paper-card"
-                onClick={() => setActiveModalPaper(paper)}
-              >
-                <div className="card-top-meta">
-                  <div className="card-badges">
-                    <span className="card-field-tag">{paper.field}</span>
-                    <span className="card-match-badge">{paper.matchScore}</span>
-                    {paper.openAccess && <span className="card-oa-tag">Open Access</span>}
-                  </div>
-                  <button
-                    type="button"
-                    className={`card-bookmark-btn ${isSaved ? "card-bookmark-saved card-bookmarked" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSavePaper(paper);
-                    }}
-                    aria-label={isSaved ? "Remove from stack" : "Save to stack"}
-                    title={isSaved ? "Remove from stack" : "Save to stack"}
-                  >
-                    <Bookmark size={17} fill={isSaved ? "currentColor" : "none"} />
-                  </button>
-                </div>
-
-                <h3 className="card-paper-title">{paper.title}</h3>
-                <p className="card-authors-line">{paper.authors}</p>
-                <div className="card-venue-row">
-                  <span className="venue-pill">{paper.venue}</span>
-                  <span className="venue-separator">·</span>
-                  <span>{paper.year}</span>
-                  <span className="venue-separator">·</span>
-                  <span className="citation-count-text">
-                    <Quote size={12} /> {paper.citationLabel}
-                  </span>
-                  <span className="venue-separator">·</span>
-                  <span className="reading-time-text">
-                    <Clock size={12} /> {paper.readingTime}
-                  </span>
-                </div>
-
-                <p className="card-abstract-snippet">{paper.abstract}</p>
-
-                <div className="card-topic-tag-pill">
-                  <Tag size={12} />
-                  <span>{paper.topicTag}</span>
-                </div>
-
-                <div className="card-footer-actions">
-                  <button
-                    type="button"
-                    className="card-read-action-btn"
-                    onClick={() => setActiveModalPaper(paper)}
-                  >
-                    <span>Read Abstract & Takeaways →</span>
-                  </button>
-                  <div className="card-quick-actions">
+        <>
+          <div className="discover-papers-grid">
+            {paginatedPapers.map((paper) => {
+              const isSaved = savedIds.has(String(paper.id)) || savedIds.has(Number(paper.id));
+              return (
+                <article
+                  key={paper.id}
+                  className="discover-paper-card"
+                  onClick={() => setActiveModalPaper(paper)}
+                >
+                  <div className="card-top-meta">
+                    <div className="card-badges">
+                      <span className="card-field-tag">{paper.field}</span>
+                      <span className="card-match-badge">{paper.matchScore}</span>
+                      {paper.openAccess && <span className="card-oa-tag">Open Access</span>}
+                    </div>
                     <button
                       type="button"
-                      className="card-quick-btn"
-                      title="Quick copy BibTeX citation"
-                      onClick={(e) => handleQuickCopyBibtex(paper, e)}
+                      className={`card-bookmark-btn ${isSaved ? "card-bookmark-saved card-bookmarked" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSavePaper(paper);
+                      }}
+                      aria-label={isSaved ? "Remove from stack" : "Save to stack"}
+                      title={isSaved ? "Remove from stack" : "Save to stack"}
                     >
-                      {copiedId === paper.id ? (
-                        <>
-                          <Check size={13} />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={13} />
-                          <span>BibTeX</span>
-                        </>
-                      )}
+                      <Bookmark size={17} fill={isSaved ? "currentColor" : "none"} />
                     </button>
-                    {paper.pdfUrl && (
-                      <a
-                        href={paper.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="card-quick-btn"
-                        title="Open external publication"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ExternalLink size={13} />
-                      </a>
-                    )}
                   </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+
+                  <h3 className="card-paper-title">{paper.title}</h3>
+                  <p className="card-authors-line">{paper.authors}</p>
+                  <div className="card-venue-row">
+                    <span className="venue-pill">{paper.venue}</span>
+                    <span className="venue-separator">·</span>
+                    <span>{paper.year}</span>
+                    <span className="venue-separator">·</span>
+                    <span className="citation-count-text">
+                      <Quote size={12} /> {paper.citationLabel}
+                    </span>
+                    <span className="venue-separator">·</span>
+                    <span className="reading-time-text">
+                      <Clock size={12} /> {paper.readingTime}
+                    </span>
+                  </div>
+
+                  <p className="card-abstract-snippet">{paper.abstract}</p>
+
+                  <div className="card-topic-tag-pill">
+                    <Tag size={12} />
+                    <span>{paper.topicTag}</span>
+                  </div>
+
+                  <div className="card-footer-actions">
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="card-read-action-btn"
+                        onClick={() => {
+                          setModalInitialTab("overview");
+                          setActiveModalPaper(paper);
+                        }}
+                      >
+                        <span>Overview →</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalInitialTab("reader");
+                          setActiveModalPaper(paper);
+                        }}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          background: "linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(168, 85, 247, 0.12))",
+                          color: "#7c3aed",
+                          border: "1px solid rgba(124, 58, 237, 0.3)",
+                          padding: "5px 10px",
+                          borderRadius: "8px",
+                          fontSize: "0.76rem",
+                          fontWeight: "750",
+                          cursor: "pointer",
+                        }}
+                        title="Read full-text PDF with color-coded highlight tags & sticky notes"
+                      >
+                        <BookOpen size={12} />
+                        <span>Read PDF & Annotate</span>
+                      </button>
+                    </div>
+                    <div className="card-quick-actions">
+                      <button
+                        type="button"
+                        className="card-quick-btn"
+                        title="Quick copy BibTeX citation"
+                        onClick={(e) => handleQuickCopyBibtex(paper, e)}
+                      >
+                        {copiedId === paper.id ? (
+                          <>
+                            <Check size={13} />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={13} />
+                            <span>BibTeX</span>
+                          </>
+                        )}
+                      </button>
+                      {paper.pdfUrl && (
+                        <a
+                          href={paper.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="card-quick-btn"
+                          title="Open external publication"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink size={13} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {/* Bottom Pagination Controls */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredPapers.length}
+            pageSize={pageSize}
+            pageSizeOptions={[6, 9, 12, 18, 24]}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="publications"
+            scrollToElementId="discover-catalog-results"
+          />
+        </>
       )}
 
       {/* Interactive Paper Detail Modal */}
       {activeModalPaper && (
         <PaperModal
           paper={activeModalPaper}
+          initialTab={modalInitialTab}
           onClose={() => setActiveModalPaper(null)}
           isSaved={savedIds.has(String(activeModalPaper.id)) || savedIds.has(Number(activeModalPaper.id))}
           onToggleSave={() => toggleSavePaper(activeModalPaper)}

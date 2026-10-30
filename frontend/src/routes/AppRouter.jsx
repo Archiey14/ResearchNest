@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AboutPage from "../pages/AboutPage.jsx";
 import AuthPage from "../pages/AuthPage.jsx";
 import ContactPage from "../pages/ContactPage.jsx";
@@ -16,15 +16,19 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="discover" element={<Navigate to="/workspace/discover" replace />} />
+        <Route path="saved" element={<Navigate to="/workspace/saved" replace />} />
         <Route path="auth" element={<AuthPage />} />
         <Route path="login" element={<AuthPage />} />
         <Route path="signup" element={<AuthPage />} />
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
           <Route path="about" element={<AboutPage />} />
-          <Route path="privacy" element={<LegalPage />} />
-          <Route path="security" element={<LegalPage />} />
-          <Route path="terms" element={<LegalPage />} />
+          <Route path="privacy" element={<LegalPage defaultDoc="privacy" />} />
+          <Route path="security" element={<LegalPage defaultDoc="security" />} />
+          <Route path="terms" element={<LegalPage defaultDoc="terms" />} />
+          <Route path="legal" element={<LegalPage defaultDoc="terms" />} />
+          <Route path="legal/:document" element={<LegalPage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

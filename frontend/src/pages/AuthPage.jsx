@@ -330,6 +330,7 @@ export default function AuthPage() {
     try {
       const resp = await authService.forgotPassword(emailTrim);
       setForgotStep(2);
+      setForgotOtp("");
       setNotice({
         type: "success",
         text: resp?.message || "If an account with that email exists, a password reset OTP has been sent.",
@@ -1155,65 +1156,26 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* Live Backend Connection Status & Alerts */}
-          <div
-            className={`auth-notice ${
-              notice
-                ? notice.type === "success"
+          {/* Dynamic Notice / Alert Banner */}
+          {notice && (
+            <div
+              className={`auth-notice ${
+                notice.type === "success"
                   ? "auth-notice-active auth-notice-success"
                   : "auth-notice-active auth-notice-error"
-                : "auth-notice-static"
-            }`}
-            aria-live="polite"
-          >
-            {notice ? (
-              notice.type === "success" ? (
-                <CheckCircle2 className="auth-notice-icon" size={16} aria-hidden="true" />
+              }`}
+              aria-live="polite"
+            >
+              {notice.type === "success" ? (
+                <CheckCircle2 className="auth-notice-icon text-success" size={16} aria-hidden="true" />
               ) : (
                 <AlertCircle className="auth-notice-icon" size={16} aria-hidden="true" />
-              )
-            ) : (
-              <CheckCircle2 className="auth-notice-icon text-success" size={16} aria-hidden="true" />
-            )}
-            <div className="auth-notice-text">
-              {notice ? (
-                <span>{notice.text || notice.message}</span>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <span>
-                    Connected to Spring Boot API. Live MySQL authentication enabled.
-                  </span>
-                  {!isRegister && !isForgot && !twoFactorRequired && (
-                    <button
-                      type="button"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "var(--color-primary-600, #7c3aed)",
-                        cursor: "pointer",
-                        padding: 0,
-                        textAlign: "left",
-                        fontSize: "0.82rem",
-                        textDecoration: "underline",
-                        fontWeight: 500,
-                      }}
-                      onClick={() => {
-                        setFormData({
-                          ...formData,
-                          email: "alex.chen@stanford.edu",
-                          password: "Password123!",
-                        });
-                        setErrors({});
-                        setNotice(null);
-                      }}
-                    >
-                      Fill demo account (alex.chen@stanford.edu)
-                    </button>
-                  )}
-                </div>
               )}
+              <div className="auth-notice-text">
+                <span>{notice.text || notice.message}</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Mode Switch Prompt */}
           <p className="auth-switch-prompt">

@@ -1,0 +1,179 @@
+/* ==========================================================================
+   ResearchNest - Premium Pagination Component Stylesheet
+   Supports Light & Dark Modes, Responsive Breakpoints & Smooth States
+   ========================================================================== */
+
+.rn-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 36px;
+  padding: 16px 22px;
+  background: var(--canvas-bg, #ffffff);
+  border: 1px solid var(--canvas-border, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.025);
+  transition: all 180ms ease;
+}
+
+.rn-pagination-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--color-muted, #64748b);
+  font-weight: 500;
+}
+
+.rn-pagination-info strong {
+  color: var(--color-ink, #0f172a);
+  font-weight: 700;
+}
+
+.rn-pagination-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rn-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--canvas-border, #e2e8f0);
+  background: var(--canvas-bg, #ffffff);
+  color: var(--color-ink, #1e293b);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.rn-page-btn:hover:not(:disabled) {
+  border-color: #7c3aed;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.05);
+  transform: translateY(-1px);
+}
+
+.rn-page-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.rn-page-btn.active {
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  color: #ffffff;
+  border-color: transparent;
+  font-weight: 750;
+  box-shadow: 0 3px 12px rgba(124, 58, 237, 0.32);
+}
+
+.rn-page-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.rn-page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 38px;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+/* Page size selector */
+.rn-pagination-size-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--color-muted, #64748b);
+}
+
+.rn-page-size-select {
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--canvas-border, #e2e8f0);
+  background: var(--canvas-bg, #ffffff);
+  color: var(--color-ink, #0f172a);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.rn-page-size-select:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+}
+
+/* ---------------- Dark Mode Overrides ---------------- */
+[data-theme="dark"] .rn-pagination-bar {
+  background: #15162b;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .rn-page-btn {
+  background: #1e1f3d;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f1f0fc;
+}
+
+[data-theme="dark"] .rn-page-btn:hover:not(:disabled) {
+  border-color: #c084fc;
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.15);
+}
+
+[data-theme="dark"] .rn-page-btn.active {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.38);
+}
+
+[data-theme="dark"] .rn-page-size-select {
+  background: #1e1f3d;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f1f0fc;
+}
+
+[data-theme="dark"] .rn-page-size-select:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.22);
+}
+
+/* ---------------- Responsive ---------------- */
+@media (max-width: 768px) {
+  .rn-pagination-bar {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .rn-pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .rn-page-btn {
+    min-width: 34px;
+    height: 34px;
+    font-size: 0.82rem;
+  }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  BookOpen,
   Bookmark,
   Check,
   Clock,
@@ -15,8 +16,17 @@ import {
 } from "lucide-react";
 import { papersService } from "../services/papersService.js";
 import { activityService } from "../services/activityService.js";
+import PdfReaderStudio from "./PdfReaderStudio.jsx";
 
-export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSelectPaper }) {
+export default function PaperModal({
+  paper,
+  onClose,
+  isSaved,
+  onToggleSave,
+  onSelectPaper,
+  initialTab = "overview",
+}) {
+  const [modalTab, setModalTab] = useState(initialTab);
   const [citationTab, setCitationTab] = useState("bibtex");
   const [copiedCitation, setCopiedCitation] = useState(false);
   const [userNote, setUserNote] = useState(() => {
@@ -97,6 +107,31 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSe
     setTimeout(() => setNoteSaved(false), 2000);
   }
 
+  // If in Reader Studio Mode, render full-text reader & annotator workbench
+  if (modalTab === "reader") {
+    return (
+      <div
+        className="paper-modal-overlay"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="paper-modal-title"
+      >
+        <div
+          className="paper-modal-card is-reader-mode"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <PdfReaderStudio
+            paper={paper}
+            onClose={() => setModalTab("overview")}
+            isSaved={isSaved}
+            onToggleSave={onToggleSave}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="paper-modal-overlay"
@@ -121,14 +156,39 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSe
               <span className="modal-oa-badge">Open Access</span>
             )}
           </div>
-          <button
-            type="button"
-            className="modal-close-btn"
-            onClick={onClose}
-            aria-label="Close paper modal"
-          >
-            <X size={20} />
-          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* View Tab Switcher */}
+            <div className="paper-modal-tab-bar">
+              <button
+                type="button"
+                className={`modal-view-tab-btn ${modalTab === "overview" ? "is-active" : ""}`}
+                onClick={() => setModalTab("overview")}
+              >
+                <FileText size={14} />
+                <span>Overview</span>
+              </button>
+              <button
+                type="button"
+                className={`modal-view-tab-btn ${modalTab === "reader" ? "is-active" : ""}`}
+                onClick={() => setModalTab("reader")}
+                title="Open interactive manuscript reader with color-coded tags and sticky notes"
+              >
+                <BookOpen size={14} />
+                <span>Full-Text & Annotations</span>
+                <span className="reader-tab-glow-badge">Studio</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={onClose}
+              aria-label="Close paper modal"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Paper Title & Authors */}
@@ -163,10 +223,21 @@ export default function PaperModal({ paper, onClose, isSaved, onToggleSave, onSe
             <span>{paper.topicTag}</span>
           </div>
           <div className="modal-actions-right">
+            {/* Direct button to launch in-app reader */}
+            <button
+              type="button"
+              className="modal-read-pdf-btn"
+              onClick={() => setModalTab("reader")}
+              title="Read full-text paper with color-coded highlighting & sticky notes"
+            >
+              <BookOpen size={15} />
+              <span>Read PDF & Annotate</span>
+            </button>
+
             <button
               type="button"
               className={`modal-save-btn ${isSaved ? "modal-saved-active" : ""}`}
-              onClick={() => onToggleSave(paper.id)}
+              onClick={() => onToggleSave(paper)}
             >
               <Bookmark size={15} fill={isSaved ? "currentColor" : "none"} />
               <span>{isSaved ? "Saved in Stack" : "Save to Stack"}</span>

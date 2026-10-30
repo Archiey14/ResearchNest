@@ -91,18 +91,26 @@ export default function AppLayout() {
   }, [theme]);
 
   useEffect(() => {
-    function updateCount() {
+    function updateCount(e) {
+      if (e && e.detail && typeof e.detail.count === "number") {
+        setSavedCount(e.detail.count);
+        return;
+      }
       const stored = localStorage.getItem("researchnest_saved_ids");
       if (stored) {
         try {
           const arr = JSON.parse(stored);
           setSavedCount(arr.length);
-        } catch (e) {}
+        } catch (err) {}
       }
     }
     updateCount();
     window.addEventListener("storage", updateCount);
-    return () => window.removeEventListener("storage", updateCount);
+    window.addEventListener("researchnest:saved_updated", updateCount);
+    return () => {
+      window.removeEventListener("storage", updateCount);
+      window.removeEventListener("researchnest:saved_updated", updateCount);
+    };
   }, []);
 
   // Close popovers on click outside
