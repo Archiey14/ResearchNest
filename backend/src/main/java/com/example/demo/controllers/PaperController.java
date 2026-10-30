@@ -106,6 +106,21 @@ public class PaperController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
+    @PostMapping("/batch")
+    public ResponseEntity<Map<String, Object>> createPapersBatch(@RequestBody List<Paper> papers) {
+        if (papers == null || papers.isEmpty()) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("message", "No papers provided");
+            return ResponseEntity.badRequest().body(err);
+        }
+        List<Paper> savedList = paperService.saveAll(papers);
+        recommendationService.triggerCatalogSync();
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("message", "Successfully ingested " + savedList.size() + " papers.");
+        resp.put("count", savedList.size());
+        return ResponseEntity.status(HttpStatus.CREATED).body(resp);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<Paper> updatePaper(@PathVariable Long id, @RequestBody Paper paperDetails) {
         Paper existing = paperService.getPaperById(id);

@@ -22,7 +22,33 @@ public class RecommendationController {
 
     public static class UserRecommendationRequest {
         public List<Object> savedPaperIds;
+        public List<Object> dismissedPaperIds;
+        public Map<String, Double> readDurations;
         public Integer topK;
+    }
+
+    private List<Object> parseCsvIds(String csv) {
+        List<Object> parsed = new ArrayList<>();
+        if (csv != null && !csv.isBlank()) {
+            for (String part : csv.split(",")) {
+                String trimmed = part.trim();
+                if (!trimmed.isEmpty()) {
+                    try {
+                        parsed.add(Long.parseLong(trimmed));
+                    } catch (NumberFormatException e) {
+                        String digits = trimmed.replaceAll("[^0-9]", "");
+                        if (!digits.isEmpty()) {
+                            try {
+                                parsed.add(Long.parseLong(digits));
+                            } catch (NumberFormatException ignored) {}
+                        } else {
+                            parsed.add(trimmed);
+                        }
+                    }
+                }
+            }
+        }
+        return parsed;
     }
 
     /**
@@ -37,44 +63,33 @@ public class RecommendationController {
     }
 
     /**
-     * Get personalized paper recommendations given the user's saved stack paper IDs.
-     * Example: POST /api/recommendations/user with body { "savedPaperIds": [2, 9], "topK": 5 }
+     * Get personalized paper recommendations given the user's saved stack paper IDs and active learning signals.
+     * Example: POST /api/recommendations/user with body { "savedPaperIds": [2, 9], "dismissedPaperIds": [3], "topK": 5 }
      */
     @PostMapping("/user")
     public ResponseEntity<?> getRecommendationsForUser(@RequestBody UserRecommendationRequest req) {
         List<Object> saved = req != null && req.savedPaperIds != null ? req.savedPaperIds : Collections.emptyList();
+        List<Object> dismissed = req != null && req.dismissedPaperIds != null ? req.dismissedPaperIds : Collections.emptyList();
+        Map<String, Double> durations = req != null && req.readDurations != null ? req.readDurations : Collections.emptyMap();
         int topK = req != null && req.topK != null ? req.topK : 5;
-        return ResponseEntity.ok(recommendationService.getRecommendationsForUser(saved, topK));
+        return ResponseEntity.ok(recommendationService.getRecommendationsForUser(saved, dismissed, durations, topK));
     }
 
     /**
-     * Convenient GET endpoint for the frontend dashboard.
-     * Example: GET /api/recommendations/for-you?savedIds=2,9&topK=5
+     * Convenient GET endpoint for the frontend dashboard with active feedback support.
+     * Example: GET /api/recommendations/for-you?savedIds=2,9&dismissedIds=3&topK=5
      */
     @GetMapping("/for-you")
     public ResponseEntity<?> getForYou(
             @RequestParam(required = false) String savedIds,
+            @RequestParam(required = false) String dismissedIds,
             @RequestParam(defaultValue = "5") int topK) {
-        List<Object> parsedIds = new ArrayList<>();
-        if (savedIds != null && !savedIds.isBlank()) {
-            for (String part : savedIds.split(",")) {
-                String trimmed = part.trim();
-                if (!trimmed.isEmpty()) {
-                    try {
-                        parsedIds.add(Long.parseLong(trimmed));
-                    } catch (NumberFormatException e) {
-                        String digits = trimmed.replaceAll("[^0-9]", "");
-                        if (!digits.isEmpty()) {
-                            try {
-                                parsedIds.add(Long.parseLong(digits));
-                            } catch (NumberFormatException ignored) {}
-                        } else {
-                            parsedIds.add(trimmed);
-                        }
-                    }
-                }
-            }
-        }
-        return ResponseEntity.ok(recommendationService.getRecommendationsForUser(parsedIds, topK));
+        List<Object> parsedSaved = parseCsvIds(savedIds);
+        List<Object> parsedDismissed = parseCsvIds(dismissedIds);
+        return ResponseEntity.ok(recommendationService.getRecommendationsForUser(
+                parsedSaved,
+                parsedDismissed,
+                Collections.emptyMap(),
+                topK));
     }
 }

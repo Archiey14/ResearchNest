@@ -9,7 +9,9 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock,
   ExternalLink,
+  EyeOff,
   FileText,
   Flame,
   Globe,
@@ -33,6 +35,7 @@ import { authService } from "../services/authService.js";
 import { activityService } from "../services/activityService.js";
 import { scholarlyService } from "../services/scholarlyService.js";
 import { apiRequest } from "../services/apiClient.js";
+import { getSavedIds, toggleSavedPaper } from "../services/savedPapersStore.js";
 
 export default function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,16 +45,15 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState("for-you");
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => authService.getStoredUser());
-  const [feedMode, setFeedMode] = useState("catalog"); // "catalog" | "scholarly"
 
   // Pagination state for curated feed
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
 
-  // Reset to first page when tab, topic, query, or feedMode changes
+  // Reset to first page when tab, topic, or search query changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, selectedTopic, appliedSearchQuery, feedMode]);
+  }, [activeTab, selectedTopic, appliedSearchQuery]);
 
   // Catalog papers from Spring Boot MySQL (seeded with mock landmark papers)
   const [catalogPapers, setCatalogPapers] = useState(mockPapers);
@@ -68,10 +70,7 @@ export default function HomePage() {
   });
 
   // User saved paper IDs
-  const [savedPaperIds, setSavedPaperIds] = useState(() => {
-    const stored = localStorage.getItem("researchnest_saved_ids");
-    return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
-  });
+  const [savedPaperIds, setSavedPaperIds] = useState(() => new Set(getSavedIds()));
 
   // Dynamic user activities & reading history
   const [activities, setActivities] = useState(() => activityService.getActivities());
@@ -80,10 +79,76 @@ export default function HomePage() {
   // AI recommendations state
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [dismissedPaperIds, setDismissedPaperIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem("researchnest_dismissed_ids");
+      return stored ? new Set(JSON.parse(stored).map(String)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [statusMessage, setStatusMessage] = useState("");
   const [calendarMonth, setCalendarMonth] = useState("October 2026");
   const [activeModalPaper, setActiveModalPaper] = useState(null);
   const [modalInitialTab, setModalInitialTab] = useState("overview");
+
+  const [isHarvesting, setIsHarvesting] = useState(false);
+
+  function handleDismissRecommendation(paperId, e) {
+    e?.stopPropagation();
+    const pidStr = String(paperId);
+    setDismissedPaperIds((prev) => {
+      const next = new Set(prev);
+      next.add(pidStr);
+      try {
+        localStorage.setItem("researchnest_dismissed_ids", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+    activityService.logActivity({
+      type: "ai_feedback",
+      action: "Negative feedback applied (Rocchio suppression)",
+      details: `Suppressed paper #${pidStr} to steer recommendations away from this topic.`,
+      paperId: pidStr,
+    });
+  }
+
+  async function handleHarvestOpenAlex() {
+    setIsHarvesting(true);
+    setStatusMessage("Harvesting live peer-reviewed literature across 7 core disciplines via OpenAlex API...");
+    try {
+      const res = await scholarlyService.triggerHarvestOpenAlex(8);
+      if (res && res.status === "success") {
+        setStatusMessage(
+          `Successfully harvested ${res.harvestedCount} live publications! Catalog expanded to ${res.totalCatalogCount} papers.`
+        );
+        papersService.getPapers().then((data) => {
+          if (data && data.length > 0) setCatalogPapers(data);
+        });
+        const ids = Array.from(savedPaperIds).map((id) => (isNaN(id) ? id : Number(id)));
+        let readDurations = {};
+        try {
+          const stored = localStorage.getItem("researchnest_reading_durations");
+          if (stored) readDurations = JSON.parse(stored);
+        } catch {}
+        papersService
+          .getRecommendationsForUser(ids, 8, {
+            dismissedIds: Array.from(dismissedPaperIds),
+            readDurations,
+          })
+          .then((items) => {
+            if (items) setAiRecommendations(items);
+          });
+      } else {
+        setStatusMessage("OpenAlex literature harvested. AI vector space updated.");
+      }
+    } catch (err) {
+      console.warn("Live harvest failed:", err);
+      setStatusMessage("Could not complete OpenAlex harvesting. Check AI service connectivity.");
+    } finally {
+      setIsHarvesting(false);
+    }
+  }
 
   // Load Spring Boot MySQL catalog papers & stats
   useEffect(() => {
@@ -117,10 +182,7 @@ export default function HomePage() {
       setReadingHistory(activityService.getReadingHistory());
     }
     function onSavedUpdated() {
-      const stored = localStorage.getItem("researchnest_saved_ids");
-      if (stored) {
-        setSavedPaperIds(new Set(JSON.parse(stored).map(String)));
-      }
+      setSavedPaperIds(new Set(getSavedIds()));
     }
 
     window.addEventListener("researchnest:activity", onActivityUpdate);
@@ -142,17 +204,15 @@ export default function HomePage() {
     setAppliedSearchQuery(q);
   }, [searchParams]);
 
-  // Fetch live scholarly papers from OpenAlex when scholarly mode is active or topic/search changes
+  // Stream live scholarly literature in the background to seamlessly enrich the unified catalog
   useEffect(() => {
-    if (feedMode !== "scholarly") return;
-
     let active = true;
     setIsFetchingScholarly(true);
 
     scholarlyService
       .searchLivePapers(appliedSearchQuery, {
         fieldId: selectedTopic,
-        perPage: 12,
+        perPage: 20,
       })
       .then((items) => {
         if (active && items) setScholarlyPapers(items);
@@ -165,16 +225,25 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, [feedMode, selectedTopic, appliedSearchQuery]);
+  }, [selectedTopic, appliedSearchQuery]);
 
-  // Request AI recommendation ranking for user whenever saved papers update
+  // Request AI recommendation ranking for user whenever saved papers or dismissed papers update
   useEffect(() => {
     let active = true;
     setLoadingRecommendations(true);
     const ids = Array.from(savedPaperIds).map((id) => (isNaN(id) ? id : Number(id)));
 
+    let readDurations = {};
+    try {
+      const stored = localStorage.getItem("researchnest_reading_durations");
+      if (stored) readDurations = JSON.parse(stored);
+    } catch {}
+
     papersService
-      .getRecommendationsForUser(ids, 8)
+      .getRecommendationsForUser(ids, 8, {
+        dismissedIds: Array.from(dismissedPaperIds),
+        readDurations,
+      })
       .then((items) => {
         if (active && items) setAiRecommendations(items);
       })
@@ -186,7 +255,17 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, [savedPaperIds]);
+  }, [savedPaperIds, dismissedPaperIds]);
+
+  // Listen for reading depth updates from PdfReaderStudio
+  useEffect(() => {
+    function onDurationsUpdated() {
+      // Re-trigger active learning ranking when reading duration is logged
+      setDismissedPaperIds((prev) => new Set(prev));
+    }
+    window.addEventListener("researchnest:reading_durations_updated", onDurationsUpdated);
+    return () => window.removeEventListener("researchnest:reading_durations_updated", onDurationsUpdated);
+  }, []);
 
   function handleSearchSubmit(e) {
     if (e) e.preventDefault();
@@ -225,43 +304,10 @@ export default function HomePage() {
           scholarlyPapers.find((p) => String(p.id) === strId) ||
           mockPapers.find((p) => String(p.id) === strId);
 
-    setSavedPaperIds((prev) => {
-      const next = new Set(prev);
-      const isSaving = !next.has(strId);
-      if (isSaving) {
-        next.add(strId);
-      } else {
-        next.delete(strId);
-        next.delete(Number(id));
-      }
-      const arr = Array.from(next).map(String);
-      localStorage.setItem("researchnest_saved_ids", JSON.stringify(arr));
-
-      if (targetPaper) {
-        try {
-          const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
-          let pool = storedPool ? JSON.parse(storedPool) : [];
-          if (isSaving) {
-            if (!pool.some((p) => String(p.id) === strId)) {
-              pool.push(targetPaper);
-            }
-          } else {
-            pool = pool.filter((p) => String(p.id) !== strId);
-          }
-          localStorage.setItem("researchnest_saved_papers_pool", JSON.stringify(pool));
-        } catch (e) {
-          console.warn("Could not update saved papers pool:", e);
-        }
-      }
-
-      window.dispatchEvent(
-        new CustomEvent("researchnest:saved_updated", { detail: { id: strId, isSaving } })
-      );
-      return next;
-    });
+    const isSaving = toggleSavedPaper(paperOrId, activePapersSource);
+    setSavedPaperIds(new Set(getSavedIds()));
 
     if (targetPaper) {
-      const isSaving = !savedPaperIds.has(strId);
       if (isSaving) {
         activityService.logActivity(
           "Saved paper to Stack",
@@ -269,7 +315,7 @@ export default function HomePage() {
           "save",
           "purple"
         );
-        if (feedMode === "scholarly") {
+        if (targetPaper.openAlexId || String(targetPaper.id).startsWith("oa-")) {
           papersService
             .createPaper({
               title: targetPaper.title,
@@ -286,6 +332,14 @@ export default function HomePage() {
               openAccess: targetPaper.openAccess,
               pdfUrl: targetPaper.pdfUrl,
               readingTime: targetPaper.readingTime,
+            })
+            .then((saved) => {
+              if (saved) {
+                setCatalogPapers((prev) => {
+                  if (prev.some((p) => String(p.id) === String(saved.id))) return prev;
+                  return [...prev, saved];
+                });
+              }
             })
             .catch((err) => console.warn("Could not persist scholarly paper:", err));
         }
@@ -304,8 +358,37 @@ export default function HomePage() {
     setSelectedTopic((prev) => (prev === topicId ? null : topicId));
   }
 
-  // Active paper list based on feed mode
-  const activePapersSource = feedMode === "scholarly" ? scholarlyPapers : catalogPapers;
+  // Unified scholarly catalog: seamlessly combines database catalog and live research literature
+  const activePapersSource = useMemo(() => {
+    const base = catalogPapers.length > 0 ? catalogPapers : mockPapers;
+    const seenTitles = new Set();
+    const seenIds = new Set();
+    const unified = [];
+
+    // 1. Base catalog papers
+    base.forEach((p) => {
+      const titleKey = (p.title || "").trim().toLowerCase();
+      const idKey = String(p.id);
+      if (titleKey && !seenTitles.has(titleKey)) {
+        seenTitles.add(titleKey);
+        seenIds.add(idKey);
+        unified.push(p);
+      }
+    });
+
+    // 2. Seamlessly blend live scholarly literature
+    scholarlyPapers.forEach((p) => {
+      const titleKey = (p.title || "").trim().toLowerCase();
+      const idKey = String(p.id);
+      if (titleKey && !seenTitles.has(titleKey) && !seenIds.has(idKey)) {
+        seenTitles.add(titleKey);
+        seenIds.add(idKey);
+        unified.push(p);
+      }
+    });
+
+    return unified;
+  }, [catalogPapers, scholarlyPapers]);
 
   // Real dynamic KPI metrics computed from database & user state
   const dynamicKpiMetrics = useMemo(() => {
@@ -447,11 +530,14 @@ export default function HomePage() {
   const displayedPapers = useMemo(() => {
     let list = [...activePapersSource];
 
+    // Exclude papers dismissed by user via active learning feedback
+    list = list.filter((paper) => !dismissedPaperIds.has(String(paper.id)));
+
     if (selectedTopic) {
       list = list.filter((paper) => paper.fieldId === selectedTopic);
     }
 
-    if (appliedSearchQuery.trim() && feedMode === "catalog") {
+    if (appliedSearchQuery.trim()) {
       const q = appliedSearchQuery.toLowerCase();
       list = list.filter(
         (paper) =>
@@ -487,7 +573,7 @@ export default function HomePage() {
     }
 
     return list;
-  }, [activePapersSource, activeTab, selectedTopic, appliedSearchQuery, feedMode, aiRecommendations]);
+  }, [activePapersSource, activeTab, selectedTopic, appliedSearchQuery, aiRecommendations, dismissedPaperIds]);
 
   // Paginated papers slice for the curated feed
   const paginatedPapers = useMemo(() => {
@@ -802,50 +888,20 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Live API Feed Switcher Toggle */}
-            <div className="feed-source-toggle" role="group" aria-label="Literature source">
-              <button
-                type="button"
-                className={`feed-source-pill ${feedMode === "catalog" ? "feed-source-pill-active" : ""}`}
-                onClick={() => setFeedMode("catalog")}
-                title="Verified peer-reviewed papers from Spring Boot MySQL database"
-              >
+            {/* Unified Scholarly Catalog Badge */}
+            <div className="feed-unified-badge" title="All research literature unified into one recommendation space">
+              <span className="feed-counter-pill">
                 <Layers size={13} />
-                <span>MySQL Catalog ({catalogPapers.length})</span>
-              </button>
-              <button
-                type="button"
-                className={`feed-source-pill ${feedMode === "scholarly" ? "feed-source-pill-active" : ""}`}
-                onClick={() => setFeedMode("scholarly")}
-                title="Query live papers from OpenAlex 250M+ scientific research API"
-              >
-                <Globe size={13} />
-                <span>Live OpenAlex API</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Scholarly Live Stream Banner */}
-          {feedMode === "scholarly" && (
-            <div className="scholarly-feed-banner">
-              <div className="scholarly-feed-left">
-                <span className="scholarly-globe-icon">
-                  <Globe size={16} />
-                </span>
-                <div>
-                  <h4 className="scholarly-feed-title">Live Scientific Literature API Active</h4>
-                  <p className="scholarly-feed-sub">
-                    Streaming genuine peer-reviewed publications from OpenAlex & arXiv. Saving papers persists them directly to your MySQL database.
-                  </p>
-                </div>
-              </div>
+                <span>{displayedPapers.length} Publications</span>
+              </span>
               {isFetchingScholarly && (
-                <span className="scholarly-fetching-pill">
-                  <Loader2 size={13} className="spin-icon" /> Fetching live papers...
+                <span className="feed-sync-pill" title="Live peer-reviewed literature streaming into catalog">
+                  <Loader2 size={12} className="spin-icon" />
+                  <span>Syncing live literature...</span>
                 </span>
               )}
             </div>
-          )}
+          </div>
 
           {statusMessage && (
             <div className="feed-status-notice" aria-live="polite">
@@ -865,13 +921,20 @@ export default function HomePage() {
                     Smart AI Literature Recommendations
                   </h3>
                   <p className="ai-feed-banner-sub">
-                    Personalized to your saved stacks using TF-IDF & Cosine Similarity vector space matching.
+                    Personalized to your saved stacks using Rocchio active feedback & deep reading weights.
                   </p>
                 </div>
               </div>
-              <span className="ai-feed-badge">
-                <Sparkles size={12} /> AI Engine Active
-              </span>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                {dismissedPaperIds.size > 0 && (
+                  <span className="ai-feed-badge" style={{ background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.25)" }}>
+                    <EyeOff size={12} /> {dismissedPaperIds.size} filtered
+                  </span>
+                )}
+                <span className="ai-feed-badge">
+                  <Sparkles size={12} /> AI Engine Active
+                </span>
+              </div>
             </div>
           )}
 
@@ -892,9 +955,25 @@ export default function HomePage() {
                   <div className="card-top-row">
                     <span className="card-discipline-pill">{paper.field}</span>
                     <div className="card-top-actions">
+                      {recInfo?.deepReadingBoost && (
+                        <span className="card-boost-pill" title="Anchor boosted 2x from deep reading session (>= 2 min)">
+                          <Clock size={11} /> Deep Read
+                        </span>
+                      )}
                       <span className={`card-match-pill ${recInfo ? "card-ai-match-pill" : ""}`}>
                         {recInfo ? recInfo.matchPercentage : (paper.matchScore || "96% Match")}
                       </span>
+                      {activeTab === "for-you" && (
+                        <button
+                          type="button"
+                          className="card-dismiss-btn"
+                          onClick={(e) => handleDismissRecommendation(paper.id, e)}
+                          title="Not interested (suppresses topic via Rocchio feedback)"
+                          aria-label="Dismiss paper"
+                        >
+                          <EyeOff size={15} />
+                        </button>
+                      )}
                       <button
                         type="button"
                         className={`card-bookmark-btn ${isSaved ? "card-bookmark-saved" : ""}`}

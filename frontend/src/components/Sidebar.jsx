@@ -1,13 +1,32 @@
 import { Bookmark, BookOpen, Compass, LayoutDashboard } from "lucide-react";
 import { NavLink } from "react-router-dom";
-
-const navigationItems = [
-  { label: "Dashboard", icon: LayoutDashboard, to: "/workspace" },
-  { label: "Discover Papers", icon: Compass, to: "/workspace/discover" },
-  { label: "Saved Papers", icon: Bookmark, to: "/workspace/saved", count: 24 },
-];
+import { useEffect, useState } from "react";
+import { getSavedCount } from "../services/savedPapersStore.js";
 
 export default function Sidebar() {
+  const [savedCount, setSavedCount] = useState(() => getSavedCount());
+
+  useEffect(() => {
+    function onUpdate(e) {
+      if (e?.detail && typeof e.detail.count === "number") {
+        setSavedCount(e.detail.count);
+      } else {
+        setSavedCount(getSavedCount());
+      }
+    }
+    window.addEventListener("researchnest:saved_updated", onUpdate);
+    window.addEventListener("storage", onUpdate);
+    return () => {
+      window.removeEventListener("researchnest:saved_updated", onUpdate);
+      window.removeEventListener("storage", onUpdate);
+    };
+  }, []);
+
+  const navigationItems = [
+    { label: "Dashboard", icon: LayoutDashboard, to: "/workspace" },
+    { label: "Discover Papers", icon: Compass, to: "/workspace/discover" },
+    { label: "Saved Papers", icon: Bookmark, to: "/workspace/saved", count: savedCount > 0 ? savedCount : undefined },
+  ];
   return (
     <aside className="sidebar" aria-label="Researchly workspace">
       <NavLink className="brand" to="/workspace" aria-label="ResearchNest dashboard">

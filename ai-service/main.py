@@ -22,6 +22,9 @@ app.add_middleware(
 )
 
 engine = PaperRecommendationEngine()
+import os
+import json
+
 SPRING_BOOT_API = "http://localhost:8081/api/papers"
 
 class SimilarRequest(BaseModel):
@@ -30,6 +33,8 @@ class SimilarRequest(BaseModel):
 
 class UserRecommendRequest(BaseModel):
     savedPaperIds: List[Any] = Field(default=[], description="List of paper IDs in the researcher's saved stack")
+    dismissedPaperIds: Optional[List[Any]] = Field(default=[], description="List of paper IDs dismissed/hidden by researcher")
+    readDurations: Optional[Dict[str, float]] = Field(default={}, description="Reading duration in seconds per paper ID")
     topK: Optional[int] = Field(default=5, description="Number of recommendations to return")
 
 class SyncRequest(BaseModel):
@@ -37,7 +42,7 @@ class SyncRequest(BaseModel):
 
 def fetch_and_index_catalog():
     try:
-        resp = requests.get(SPRING_BOOT_API, timeout=5)
+        resp = requests.get(SPRING_BOOT_API, timeout=3)
         if resp.status_code == 200:
             papers = resp.json()
             if isinstance(papers, list) and len(papers) > 0:
@@ -45,7 +50,20 @@ def fetch_and_index_catalog():
                 print(f"✅ Successfully indexed {len(papers)} papers from Spring Boot into AI Vector Space.")
                 return True
     except Exception as e:
-        print(f"⚠️ Could not fetch from Spring Boot ({e}). Will attempt on first sync.")
+        print(f"⚠️ Could not fetch from Spring Boot ({e}). Attempting local catalog fallback.")
+
+    try:
+        catalog_path = os.path.join(os.path.dirname(__file__), "papers_catalog.json")
+        if os.path.exists(catalog_path):
+            with open(catalog_path, "r", encoding="utf-8") as f:
+                papers = json.load(f)
+                if isinstance(papers, list) and len(papers) > 0:
+                    engine.fit(papers)
+                    print(f"✅ Successfully indexed {len(papers)} papers from local papers_catalog.json.")
+                    return True
+    except Exception as e:
+        print(f"⚠️ Local catalog fallback error: {e}")
+
     return False
 
 @app.on_event("startup")
@@ -102,12 +120,40 @@ def recommend_for_user(req: UserRecommendRequest):
     if len(engine.papers) == 0:
         raise HTTPException(status_code=503, detail="AI engine catalog not indexed yet.")
 
-    results = engine.recommend_for_user(req.savedPaperIds, top_k=req.topK or 5)
+    results = engine.recommend_for_user(
+        saved_paper_ids=req.savedPaperIds,
+        dismissed_paper_ids=req.dismissedPaperIds or [],
+        read_durations=req.readDurations or {},
+        top_k=req.topK or 5
+    )
     return {
         "userSavedPaperIds": req.savedPaperIds,
+        "dismissedCount": len(req.dismissedPaperIds or []),
+        "readingBoostsApplied": sum(1 for r in results if r.get("deepReadingBoost")),
         "count": len(results),
         "recommendations": results
     }
+
+from harvester import ingest_and_expand_catalog
+
+class HarvestRequest(BaseModel):
+    perDomain: Optional[int] = Field(default=8, description="Number of papers to harvest per discipline")
+    syncToSpringBoot: Optional[bool] = Field(default=True, description="Sync to Spring Boot backend")
+
+@app.post("/harvest-openalex")
+def harvest_openalex_endpoint(req: Optional[HarvestRequest] = None):
+    per_domain = req.perDomain if req and req.perDomain else 8
+    sync_sb = req.syncToSpringBoot if req and req.syncToSpringBoot is not None else True
+    catalog_path = os.path.join(os.path.dirname(__file__), "papers_catalog.json")
+
+    result = ingest_and_expand_catalog(
+        engine=engine,
+        catalog_path=catalog_path,
+        spring_boot_api=SPRING_BOOT_API,
+        per_domain=per_domain,
+        sync_to_spring_boot=sync_sb
+    )
+    return result
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

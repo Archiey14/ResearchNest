@@ -24,6 +24,7 @@ import PaperModal from "../components/PaperModal.jsx";
 import Pagination from "../components/Pagination.jsx";
 import { mockPapers, mockStacks } from "../data/mockPapers.js";
 import { papersService } from "../services/papersService.js";
+import { getSavedIds, getSavedPapers, toggleSavedPaper } from "../services/savedPapersStore.js";
 
 export default function SavedPapersPage() {
   const [allPapers, setAllPapers] = useState(mockPapers);
@@ -34,10 +35,7 @@ export default function SavedPapersPage() {
   const [selectedStackId, setSelectedStackId] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [savedIds, setSavedIds] = useState(() => {
-    const stored = localStorage.getItem("researchnest_saved_ids");
-    return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
-  });
+  const [savedIds, setSavedIds] = useState(() => new Set(getSavedIds()));
   const [activeModalPaper, setActiveModalPaper] = useState(null);
   const [modalInitialTab, setModalInitialTab] = useState("overview");
   const [showNewStackModal, setShowNewStackModal] = useState(false);
@@ -96,20 +94,8 @@ export default function SavedPapersPage() {
 
   // Listen for real-time save updates across tabs and pages
   useEffect(() => {
-    function onSavedUpdated(e) {
-      const stored = localStorage.getItem("researchnest_saved_ids");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          const newSet = new Set(parsed.map(String));
-          setSavedIds((prev) => {
-            if (prev.size === newSet.size && [...newSet].every((id) => prev.has(id))) {
-              return prev;
-            }
-            return newSet;
-          });
-        } catch (err) {}
-      }
+    function onSavedUpdated() {
+      setSavedIds(new Set(getSavedIds()));
     }
     window.addEventListener("researchnest:saved_updated", onSavedUpdated);
     window.addEventListener("storage", onSavedUpdated);
@@ -120,47 +106,8 @@ export default function SavedPapersPage() {
   }, []);
 
   function toggleSavePaper(paperOrId) {
-    const id = typeof paperOrId === "object" ? paperOrId.id : paperOrId;
-    const strId = String(id);
-    const targetPaper =
-      typeof paperOrId === "object"
-        ? paperOrId
-        : savedPapers.find((p) => String(p.id) === strId) ||
-          allPapers.find((p) => String(p.id) === strId) ||
-          mockPapers.find((p) => String(p.id) === strId);
-
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      const isSaving = !next.has(strId);
-      if (isSaving) {
-        next.add(strId);
-      } else {
-        next.delete(strId);
-        next.delete(Number(id));
-      }
-      const arr = Array.from(next).map(String);
-      localStorage.setItem("researchnest_saved_ids", JSON.stringify(arr));
-
-      try {
-        const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
-        let pool = storedPool ? JSON.parse(storedPool) : [];
-        if (isSaving && targetPaper) {
-          if (!pool.some((p) => String(p.id) === strId)) {
-            pool.push(targetPaper);
-          }
-        } else {
-          pool = pool.filter((p) => String(p.id) !== strId);
-        }
-        localStorage.setItem("researchnest_saved_papers_pool", JSON.stringify(pool));
-      } catch (e) {
-        console.warn("Could not update pool:", e);
-      }
-
-      window.dispatchEvent(
-        new CustomEvent("researchnest:saved_updated", { detail: { id: strId, isSaving } })
-      );
-      return next;
-    });
+    toggleSavedPaper(paperOrId, allPapers);
+    setSavedIds(new Set(getSavedIds()));
   }
 
   function handleCreateStack(e) {
@@ -200,29 +147,7 @@ export default function SavedPapersPage() {
 
   // Get papers in user's saved library
   const savedPapers = useMemo(() => {
-    let pool = [];
-    try {
-      const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
-      if (storedPool) pool = JSON.parse(storedPool);
-    } catch (e) {
-      console.warn("Could not read saved pool:", e);
-    }
-
-    const map = new Map();
-    [...mockPapers, ...allPapers, ...pool].forEach((p, idx) => {
-      if (p && p.id != null) {
-        map.set(String(p.id), {
-          ...p,
-          stackId: p.stackId || (p.fieldId ? `stack-${p.fieldId}` : "stack-ai"),
-          readingStatus: p.readingStatus || (idx % 3 === 0 ? "completed" : idx % 3 === 1 ? "in-progress" : "want-to-read"),
-        });
-      }
-    });
-
-    const combined = Array.from(map.values());
-    return combined.filter(
-      (p) => savedIds.has(String(p.id)) || savedIds.has(Number(p.id))
-    );
+    return getSavedPapers(allPapers);
   }, [allPapers, savedIds]);
 
 

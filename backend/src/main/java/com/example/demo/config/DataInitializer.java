@@ -110,7 +110,7 @@ public class DataInitializer implements CommandLineRunner {
                     750,
                     "750+ citations",
                     true,
-                    "https://www.science.org/doi/10.1126/science.adi2336",
+                    "https://arxiv.org/abs/2212.12794",
                     "16 min read",
                     "@article{lam2023learning,\n  title={Learning skillful medium-range global weather forecasting},\n  author={Lam, Remi and Sanchez-Gonzalez, Alvaro and Willson, Matthew and others},\n  journal={Science},\n  volume={382},\n  number={6677},\n  pages={1416--1421},\n  year={2023},\n  publisher={American Association for the Advancement of Science}\n}",
                     Arrays.asList(

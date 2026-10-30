@@ -179,15 +179,22 @@ export const papersService = {
   },
 
   /**
-   * Get personalized recommendations for user based on their saved stack
+   * Get personalized recommendations for user based on their saved stack and active learning signals
    */
-  async getRecommendationsForUser(savedIds = [], topK = 4) {
+  async getRecommendationsForUser(savedIds = [], topK = 4, options = {}) {
+    const { dismissedIds = [], readDurations = {} } = options;
     try {
-      const idsParam = savedIds && savedIds.length > 0 ? savedIds.join(",") : "";
-      const url = idsParam
-        ? `/recommendations/for-you?savedIds=${encodeURIComponent(idsParam)}&topK=${topK}`
-        : `/recommendations/for-you?topK=${topK}`;
-      const data = await apiRequest(url);
+      const data = await apiRequest("/recommendations/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          savedPaperIds: savedIds,
+          dismissedPaperIds: dismissedIds,
+          readDurations: readDurations,
+          topK: topK,
+        }),
+      });
+
       if (data?.recommendations && Array.isArray(data.recommendations)) {
         return data.recommendations.map((item, idx) => ({
           ...item,
@@ -195,12 +202,30 @@ export const papersService = {
         }));
       }
     } catch (err) {
-      console.warn("AI user recommendations failed, falling back:", err);
+      console.warn("AI user recommendations failed, falling back to GET:", err);
+      try {
+        const idsParam = savedIds && savedIds.length > 0 ? savedIds.join(",") : "";
+        const disParam = dismissedIds && dismissedIds.length > 0 ? dismissedIds.join(",") : "";
+        let url = `/recommendations/for-you?topK=${topK}`;
+        if (idsParam) url += `&savedIds=${encodeURIComponent(idsParam)}`;
+        if (disParam) url += `&dismissedIds=${encodeURIComponent(disParam)}`;
+        const fallbackData = await apiRequest(url);
+        if (fallbackData?.recommendations && Array.isArray(fallbackData.recommendations)) {
+          return fallbackData.recommendations.map((item, idx) => ({
+            ...item,
+            paper: normalizePaper(item.paper, idx),
+          }));
+        }
+      } catch (e) {
+        console.warn("Secondary fallback failed:", e);
+      }
     }
-    // Fallback: pick top papers not in savedIds
+
+    // Fallback: pick top papers not in savedIds or dismissedIds
     const savedSet = new Set(savedIds.map(String));
+    const dismissedSet = new Set(dismissedIds.map(String));
     return mockPapers
-      .filter((p) => !savedSet.has(String(p.id)))
+      .filter((p) => !savedSet.has(String(p.id)) && !dismissedSet.has(String(p.id)))
       .slice(0, topK)
       .map((p, idx) => ({
         paper: p,

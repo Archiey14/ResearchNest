@@ -182,4 +182,62 @@ export const scholarlyService = {
   async getTrendingLivePapers(fieldId = null, limit = 8) {
     return this.searchLivePapers("", { fieldId, perPage: limit });
   },
+
+  /**
+   * Trigger the AI microservice to harvest live landmark literature from OpenAlex
+   */
+  async triggerHarvestOpenAlex(perDomain = 8) {
+    try {
+      const res = await fetch("http://localhost:8000/harvest-openalex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ perDomain, syncToSpringBoot: true }),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn("Direct AI service harvest failed:", e);
+    }
+    return null;
+  },
+
+  /**
+   * Sync a live OpenAlex paper to Spring Boot MySQL database and re-vectorize in AI microservice
+   */
+  async syncPaperToBackend(paper) {
+    if (!paper) return null;
+    try {
+      const payload = {
+        title: paper.title,
+        authors: paper.authors,
+        year: paper.year || 2024,
+        abstractText: paper.abstract || paper.abstractText,
+        doi: paper.doi || "",
+        field: paper.field || "Artificial Intelligence",
+        fieldId: paper.fieldId || "ai",
+        venue: paper.venue || "Academic Proceedings",
+        topicTag: paper.topicTag || paper.field,
+        citations: paper.citations || 0,
+        citationLabel: paper.citationLabel || "0 citations",
+        openAccess: Boolean(paper.openAccess),
+        pdfUrl: paper.pdfUrl || "",
+        readingTime: paper.readingTime || "12 min read",
+        bibtex: paper.bibtex || "",
+        takeaways: paper.takeaways || [],
+      };
+
+      const res = await fetch("http://localhost:8081/api/papers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn("Could not sync live paper to Spring Boot:", e);
+    }
+    return null;
+  },
 };

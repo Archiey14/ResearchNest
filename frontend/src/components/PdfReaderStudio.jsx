@@ -90,6 +90,40 @@ export default function PdfReaderStudio({ paper, onClose, onToggleSave, isSaved 
     return () => window.removeEventListener("researchnest:annotations_updated", onAnnotationsUpdated);
   }, [paper]);
 
+  // Active learning reading depth timer: tracks seconds spent exploring this paper
+  useEffect(() => {
+    if (!paper?.id) return;
+    const paperIdStr = String(paper.id);
+    const startTime = Date.now();
+
+    const interval = setInterval(() => {
+      try {
+        const stored = localStorage.getItem("researchnest_reading_durations");
+        const durations = stored ? JSON.parse(stored) : {};
+        durations[paperIdStr] = (durations[paperIdStr] || 0) + 5;
+        localStorage.setItem("researchnest_reading_durations", JSON.stringify(durations));
+      } catch (err) {
+        // ignore
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      try {
+        const stored = localStorage.getItem("researchnest_reading_durations");
+        const durations = stored ? JSON.parse(stored) : {};
+        const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+        durations[paperIdStr] = (durations[paperIdStr] || 0) + (elapsedSec % 5);
+        localStorage.setItem("researchnest_reading_durations", JSON.stringify(durations));
+        window.dispatchEvent(
+          new CustomEvent("researchnest:reading_durations_updated", { detail: { paperId: paperIdStr } })
+        );
+      } catch (err) {
+        // ignore
+      }
+    };
+  }, [paper?.id]);
+
   // Keyboard navigation: Escape key closes selection toolbar or closes modal
   useEffect(() => {
     function handleKeyDown(e) {

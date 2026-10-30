@@ -159,21 +159,41 @@ class PaperRecommendationEngine:
 
         return results
 
-    def recommend_for_user(self, saved_paper_ids: List[Any], top_k: int = 5) -> List[Dict[str, Any]]:
+    def recommend_for_user(
+        self,
+        saved_paper_ids: List[Any],
+        dismissed_paper_ids: Optional[List[Any]] = None,
+        read_durations: Optional[Dict[str, float]] = None,
+        top_k: int = 5
+    ) -> List[Dict[str, Any]]:
         """
-        Personalized Hybrid Recommendation:
-        1. Computes the User Research Profile Centroid from saved papers.
-        2. Computes cosine similarity across all papers in the catalog.
-        3. Applies hybrid weighting (semantic match + citation impact + recency).
-        4. Identifies top matched concepts and specific trigger paper for transparency.
+        Personalized Active Hybrid Recommendation:
+        1. Computes User Research Profile Centroid using Reading Depth Weighting:
+           - Papers read for >= 120s receive double anchor weight (w=2.0).
+           - Papers read for >= 60s receive 1.5x weight.
+        2. Applies Rocchio Algorithm Relevance Feedback for Negative Signals:
+           - Subtracts 0.35 * v_dismissed from user centroid to steer away from rejected topics.
+           - Clamps vector to non-negative space.
+        3. Filters dismissed papers from candidates so rejected items are never suggested.
+        4. Applies hybrid weighting (semantic match + citation impact + recency).
+        5. Identifies top matched concepts and specific trigger paper for transparency.
         """
+        dismissed_paper_ids = dismissed_paper_ids or []
+        read_durations = read_durations or {}
+
         if not saved_paper_ids or self.tfidf_matrix is None or not self.papers:
-            # Fallback to high-impact trending papers
-            sorted_papers = sorted(
-                self.papers,
-                key=lambda p: (p.get("citations", 0) or 0),
-                reverse=True
-            )[:top_k]
+            # Fallback to high-impact trending papers (excluding dismissed)
+            resolved_dismissed = set()
+            for did in dismissed_paper_ids:
+                rd = self._resolve_paper_id(did)
+                if rd:
+                    resolved_dismissed.add(rd)
+
+            sorted_papers = [
+                p for p in sorted(self.papers, key=lambda p: (p.get("citations", 0) or 0), reverse=True)
+                if str(p.get("id")) not in resolved_dismissed
+            ][:top_k]
+
             return [
                 {
                     "paper": p,
@@ -192,20 +212,62 @@ class PaperRecommendationEngine:
                 str_saved.append(resolved)
 
         if not str_saved:
-            return self.recommend_for_user([], top_k)
+            return self.recommend_for_user([], dismissed_paper_ids, read_durations, top_k)
 
-        saved_indices = [self.paper_id_to_index[sid] for sid in str_saved]
-        
-        # Calculate User Profile Centroid Vector (mean of TF-IDF vectors of saved papers)
-        saved_vectors = self.tfidf_matrix[saved_indices]
-        user_profile_vector = np.asarray(saved_vectors.mean(axis=0))
+        # 1. Resolve Saved Indices & Weights (Reading Depth Bonus)
+        saved_indices = []
+        weights = []
+        for sid in str_saved:
+            idx = self.paper_id_to_index[sid]
+            saved_indices.append(idx)
+            # Duration in seconds
+            dur = float(read_durations.get(sid, 0.0) or read_durations.get(str(idx + 1), 0.0) or 0.0)
+            if dur >= 120.0:
+                w = 2.0  # Deep reading session anchor
+            elif dur >= 60.0:
+                w = 1.5  # Active interest anchor
+            else:
+                w = 1.0  # Standard save anchor
+            weights.append(w)
 
-        # Compute cosine similarity between user profile and all papers in catalog
+        saved_vectors = self.tfidf_matrix[saved_indices].toarray()
+        weights_arr = np.array(weights).reshape(-1, 1)
+        weighted_pos_vec = np.sum(saved_vectors * weights_arr, axis=0) / np.sum(weights_arr)
+
+        # 2. Rocchio Relevance Feedback (Negative Signals)
+        dismissed_indices = []
+        for did in dismissed_paper_ids:
+            rd = self._resolve_paper_id(did)
+            if rd and rd in self.paper_id_to_index:
+                d_idx = self.paper_id_to_index[rd]
+                if d_idx not in dismissed_indices:
+                    dismissed_indices.append(d_idx)
+
+        has_negative_feedback = len(dismissed_indices) > 0
+        if has_negative_feedback:
+            neg_vecs = self.tfidf_matrix[dismissed_indices].toarray()
+            mean_neg_vec = np.mean(neg_vecs, axis=0)
+            # Rocchio formula: v_user = 1.0 * v_pos - 0.35 * v_neg
+            user_profile_vector = weighted_pos_vec - (0.35 * mean_neg_vec)
+            user_profile_vector = np.maximum(0.0, user_profile_vector)  # Non-negative constraint
+            norm = np.linalg.norm(user_profile_vector)
+            if norm > 0:
+                user_profile_vector = user_profile_vector / norm
+            user_profile_vector = user_profile_vector.reshape(1, -1)
+        else:
+            user_profile_vector = weighted_pos_vec.reshape(1, -1)
+
+        # 3. Cosine similarity against catalog
         cosine_scores = cosine_similarity(user_profile_vector, self.tfidf_matrix).flatten()
 
         saved_set = set(saved_indices)
+        dismissed_set = set(dismissed_indices)
+
         scored_candidates = []
         for idx in range(len(self.papers)):
+            # Never recommend dismissed papers
+            if idx in dismissed_set:
+                continue
             cand_paper = self.papers[idx]
             raw_sim = float(cosine_scores[idx])
             hybrid_score = self._calc_hybrid_score(raw_sim, cand_paper)
@@ -213,7 +275,7 @@ class PaperRecommendationEngine:
 
         # Sort by hybrid score descending
         scored_candidates = sorted(scored_candidates, key=lambda x: x[2], reverse=True)
-        top_candidates = scored_candidates[:max(top_k, len(self.papers))]
+        top_candidates = scored_candidates[:top_k] if top_k > 0 else scored_candidates
 
         max_hybrid_raw = top_candidates[0][2] if top_candidates and top_candidates[0][2] > 0 else 1.0
 
@@ -226,6 +288,7 @@ class PaperRecommendationEngine:
             pairwise_with_saved = cosine_similarity(cand_vec, saved_vectors).flatten()
             best_saved_rel_idx = int(np.argmax(pairwise_with_saved))
             best_saved_paper = self.papers[saved_indices[best_saved_rel_idx]]
+            best_saved_w = weights[best_saved_rel_idx]
 
             # Extract overlapping concepts with user profile
             matched_keywords = self._extract_top_keywords(user_profile_vector, cand_vec, top_n=3)
@@ -237,16 +300,21 @@ class PaperRecommendationEngine:
             else:
                 match_pct = int(round(86 + (rel_score * 12) - (rank * 1.5)))
                 match_pct = max(75, min(98, match_pct))
+                
+                deep_anchor_prefix = "Deep reading anchor" if best_saved_w >= 2.0 else "Recommended based on"
                 if matched_keywords:
                     kw_str = ", ".join([f'"{k}"' for k in matched_keywords[:2]])
                     explanation = (
-                        f"Recommended based on {kw_str} alignment with \"{best_saved_paper.get('title')}\""
+                        f"{deep_anchor_prefix}: {kw_str} alignment with \"{best_saved_paper.get('title')}\""
                     )
                 else:
                     explanation = (
-                        f"Recommended based on your saved paper \"{best_saved_paper.get('title')}\" "
+                        f"{deep_anchor_prefix}: affinity with \"{best_saved_paper.get('title')}\" "
                         f"({best_saved_paper.get('field')})"
                     )
+
+            if has_negative_feedback and not is_saved:
+                explanation += " (refined with Rocchio active feedback)"
 
             recommendations.append({
                 "paper": cand_paper,
@@ -254,6 +322,7 @@ class PaperRecommendationEngine:
                 "rawCosineSimilarity": float(round(raw_sim, 4)),
                 "matchPercentage": f"{match_pct}% Match",
                 "isSaved": is_saved,
+                "deepReadingBoost": best_saved_w >= 2.0,
                 "matchedKeywords": matched_keywords,
                 "matchedWith": {
                     "id": best_saved_paper.get("id"),

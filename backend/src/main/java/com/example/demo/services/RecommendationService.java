@@ -68,10 +68,25 @@ public class RecommendationService {
      * Recommends personalized papers based on the researcher's saved stack.
      */
     public Map<String, Object> getRecommendationsForUser(List<?> savedPaperIds, int topK) {
+        return getRecommendationsForUser(savedPaperIds, Collections.emptyList(), Collections.emptyMap(), topK);
+    }
+
+    /**
+     * Recommends personalized papers using Active Learning:
+     * - Positive reading depth weights (>= 120s gets 2x anchor boost)
+     * - Negative signals via Rocchio algorithm to steer away from dismissed papers
+     */
+    public Map<String, Object> getRecommendationsForUser(
+            List<?> savedPaperIds,
+            List<?> dismissedPaperIds,
+            Map<String, ?> readDurations,
+            int topK) {
         try {
             String url = aiServiceUrl + "/recommend/user";
             Map<String, Object> req = new HashMap<>();
             req.put("savedPaperIds", savedPaperIds != null ? savedPaperIds : Collections.emptyList());
+            req.put("dismissedPaperIds", dismissedPaperIds != null ? dismissedPaperIds : Collections.emptyList());
+            req.put("readDurations", readDurations != null ? readDurations : Collections.emptyMap());
             req.put("topK", topK > 0 ? topK : 5);
 
             HttpHeaders headers = new HttpHeaders();

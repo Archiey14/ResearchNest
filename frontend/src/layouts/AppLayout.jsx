@@ -25,6 +25,7 @@ import {
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { mockStacks } from "../data/mockPapers.js";
 import { authService } from "../services/authService.js";
+import { getSavedCount } from "../services/savedPapersStore.js";
 
 const notificationsList = [
   {
@@ -60,7 +61,7 @@ export default function AppLayout() {
   const [showNewStackModal, setShowNewStackModal] = useState(false);
   const [newStackName, setNewStackName] = useState("");
   const [newStackDesc, setNewStackDesc] = useState("");
-  const [savedCount, setSavedCount] = useState(24);
+  const [savedCount, setSavedCount] = useState(() => getSavedCount());
 
   useEffect(() => {
     authService.getCurrentUser().then((user) => {
@@ -92,17 +93,11 @@ export default function AppLayout() {
 
   useEffect(() => {
     function updateCount(e) {
-      if (e && e.detail && typeof e.detail.count === "number") {
+      if (e?.detail && typeof e.detail.count === "number") {
         setSavedCount(e.detail.count);
         return;
       }
-      const stored = localStorage.getItem("researchnest_saved_ids");
-      if (stored) {
-        try {
-          const arr = JSON.parse(stored);
-          setSavedCount(arr.length);
-        } catch (err) {}
-      }
+      setSavedCount(getSavedCount());
     }
     updateCount();
     window.addEventListener("storage", updateCount);
@@ -177,7 +172,7 @@ export default function AppLayout() {
   const navTabs = [
     { label: "Dashboard", to: "/workspace", icon: LayoutDashboard },
     { label: "Discover", to: "/workspace/discover", icon: Compass },
-    { label: "Saved Papers", to: "/workspace/saved", icon: BookOpen, badge: String(savedCount) },
+    { label: "Saved Papers", to: "/workspace/saved", icon: BookOpen, badge: savedCount > 0 ? String(savedCount) : undefined },
   ];
 
   return (

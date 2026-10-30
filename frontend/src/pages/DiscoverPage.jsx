@@ -20,6 +20,7 @@ import PaperModal from "../components/PaperModal.jsx";
 import Pagination from "../components/Pagination.jsx";
 import { mockPapers, trendingTopics } from "../data/mockPapers.js";
 import { papersService } from "../services/papersService.js";
+import { getSavedIds, toggleSavedPaper } from "../services/savedPapersStore.js";
 
 const quickPrompts = [
   "State Space Models",
@@ -42,10 +43,7 @@ export default function DiscoverPage() {
   const [yearFilter, setYearFilter] = useState("all");
   const [papers, setPapers] = useState(mockPapers);
   const [isLoading, setIsLoading] = useState(false);
-  const [savedIds, setSavedIds] = useState(() => {
-    const stored = localStorage.getItem("researchnest_saved_ids");
-    return stored ? new Set(JSON.parse(stored).map(String)) : new Set(["1", "4", "8"]);
-  });
+  const [savedIds, setSavedIds] = useState(() => new Set(getSavedIds()));
   const [activeModalPaper, setActiveModalPaper] = useState(null);
   const [modalInitialTab, setModalInitialTab] = useState("overview");
   const [copiedId, setCopiedId] = useState(null);
@@ -86,19 +84,7 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     function onSavedUpdated() {
-      const stored = localStorage.getItem("researchnest_saved_ids");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          const newSet = new Set(parsed.map(String));
-          setSavedIds((prev) => {
-            if (prev.size === newSet.size && [...newSet].every((id) => prev.has(id))) {
-              return prev;
-            }
-            return newSet;
-          });
-        } catch (err) {}
-      }
+      setSavedIds(new Set(getSavedIds()));
     }
     window.addEventListener("researchnest:saved_updated", onSavedUpdated);
     window.addEventListener("storage", onSavedUpdated);
@@ -109,47 +95,8 @@ export default function DiscoverPage() {
   }, []);
 
   function toggleSavePaper(paperOrId) {
-    const id = typeof paperOrId === "object" ? paperOrId.id : paperOrId;
-    const strId = String(id);
-    const targetPaper =
-      typeof paperOrId === "object"
-        ? paperOrId
-        : papers.find((p) => String(p.id) === strId);
-
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      const isSaving = !next.has(strId);
-      if (isSaving) {
-        next.add(strId);
-      } else {
-        next.delete(strId);
-        next.delete(Number(id));
-      }
-      const arr = Array.from(next).map(String);
-      localStorage.setItem("researchnest_saved_ids", JSON.stringify(arr));
-
-      if (targetPaper) {
-        try {
-          const storedPool = localStorage.getItem("researchnest_saved_papers_pool");
-          let pool = storedPool ? JSON.parse(storedPool) : [];
-          if (isSaving) {
-            if (!pool.some((p) => String(p.id) === strId)) {
-              pool.push(targetPaper);
-            }
-          } else {
-            pool = pool.filter((p) => String(p.id) !== strId);
-          }
-          localStorage.setItem("researchnest_saved_papers_pool", JSON.stringify(pool));
-        } catch (e) {
-          console.warn("Could not update saved papers pool:", e);
-        }
-      }
-
-      window.dispatchEvent(
-        new CustomEvent("researchnest:saved_updated", { detail: { id: strId, isSaving } })
-      );
-      return next;
-    });
+    toggleSavedPaper(paperOrId, papers);
+    setSavedIds(new Set(getSavedIds()));
   }
 
   function handleSearchSubmit(e) {
