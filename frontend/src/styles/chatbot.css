@@ -1,0 +1,936 @@
+/* ==========================================================================
+   NestAI Research Copilot Chatbot Styles
+   Glassmorphism, High-Tech Dark Palette, Smooth Micro-Animations
+   ========================================================================== */
+
+/* Floating Launcher Button */
+.nestai-launcher-btn {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9990;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 0 20px rgba(6, 182, 212, 0.3);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nestai-launcher-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 15px 32px -5px rgba(59, 130, 246, 0.65), 0 0 28px rgba(6, 182, 212, 0.45);
+}
+
+.nestai-launcher-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nestai-launcher-pulse {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: nestai-pulse 2s infinite ease-in-out;
+}
+
+@keyframes nestai-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* Chatbot Floating Window */
+.nestai-window {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 440px;
+  max-width: calc(100vw - 36px);
+  height: 640px;
+  max-height: calc(100vh - 100px);
+  z-index: 9995;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 50px -12px rgba(0, 0, 0, 0.75),
+    0 0 35px rgba(59, 130, 246, 0.22);
+  overflow: hidden;
+  animation: nestai-appear 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes nestai-appear {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.nestai-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(30, 41, 59, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nestai-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nestai-avatar {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+}
+
+.nestai-avatar-online {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #10b981;
+  border: 2px solid #0f172a;
+}
+
+.nestai-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.nestai-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nestai-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.nestai-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(6, 182, 212, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nestai-subtitle {
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.nestai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nestai-icon-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nestai-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+/* Chat Stream Container */
+.nestai-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+
+.nestai-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.nestai-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Welcome Card */
+.nestai-welcome-box {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 6px;
+}
+
+.nestai-welcome-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: #38bdf8;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.nestai-welcome-text {
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: #cbd5e1;
+  margin-bottom: 14px;
+}
+
+.nestai-quick-prompts-title {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.nestai-quick-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nestai-prompt-pill {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.nestai-prompt-pill:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+  transform: translateX(3px);
+}
+
+/* Messages */
+.nestai-msg {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.nestai-msg-user {
+  justify-content: flex-end;
+}
+
+.nestai-msg-assistant {
+  justify-content: flex-start;
+}
+
+.nestai-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #06b6d4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.nestai-msg-content {
+  max-width: 84%;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.nestai-user-bubble {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  padding: 10px 15px;
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.nestai-assistant-bubble {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #f1f5f9;
+  padding: 14px 16px;
+  border-radius: 16px 16px 16px 4px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.nestai-assistant-bubble.nestai-bubble-speaking {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.22), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Markdown typography inside assistant bubble */
+.nestai-assistant-bubble h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.96rem;
+  color: #38bdf8;
+}
+
+.nestai-assistant-bubble p {
+  margin: 0 0 8px 0;
+}
+
+.nestai-assistant-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.nestai-assistant-bubble strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.nestai-assistant-bubble ul {
+  margin: 6px 0 10px 18px;
+  padding: 0;
+}
+
+.nestai-assistant-bubble li {
+  margin-bottom: 4px;
+  color: #cbd5e1;
+}
+
+.nestai-assistant-bubble blockquote {
+  margin: 8px 0;
+  padding: 6px 12px;
+  background: rgba(6, 182, 212, 0.08);
+  border-left: 3px solid #06b6d4;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.84rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Related Paper Citation Cards */
+.nestai-papers-wrap {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nestai-paper-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: all 0.2s ease;
+}
+
+.nestai-paper-card:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(15, 23, 42, 0.85);
+  transform: translateY(-1px);
+}
+
+.nestai-paper-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.nestai-field-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.nestai-paper-cites {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.nestai-paper-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #f8fafc;
+  margin-bottom: 3px;
+  line-height: 1.35;
+}
+
+.nestai-paper-authors {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.nestai-paper-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nestai-paper-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  border: 1px solid transparent;
+}
+
+.nestai-btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.nestai-btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.nestai-btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.nestai-btn-ghost:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Assistant Message Toolbar & Voice Output (TTS) Controls */
+.nestai-msg-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.nestai-msg-time {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.nestai-tts-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nestai-tts-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 0.73rem;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nestai-tts-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+  transform: translateY(-1px);
+}
+
+.nestai-tts-active-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 2px 6px;
+  border-radius: 8px;
+  animation: nestai-fade-in 0.2s ease forwards;
+}
+
+.nestai-tts-ctrl-btn {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 3px 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nestai-tts-pause {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.nestai-tts-pause:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: #ffffff;
+}
+
+.nestai-tts-resume {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.nestai-tts-resume:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: #ffffff;
+}
+
+.nestai-tts-stop {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.nestai-tts-stop:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ffffff;
+}
+
+.nestai-tts-paused-label {
+  font-size: 0.68rem;
+  color: #fbbf24;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 4px;
+}
+
+/* Soundwave Equalizer Animation */
+.nestai-tts-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+  padding: 0 4px;
+}
+
+.nestai-tts-wave-bar {
+  width: 2.5px;
+  height: 100%;
+  background: linear-gradient(180deg, #38bdf8, #06b6d4);
+  border-radius: 2px;
+  animation: nestai-wave 0.9s infinite ease-in-out;
+}
+
+.nestai-tts-wave-bar:nth-child(1) { animation-delay: 0.1s; }
+.nestai-tts-wave-bar:nth-child(2) { animation-delay: 0.35s; }
+.nestai-tts-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.nestai-tts-wave-bar:nth-child(4) { animation-delay: 0.45s; }
+
+@keyframes nestai-wave {
+  0%, 100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Follow-up suggestions */
+.nestai-suggestions {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nestai-suggestion-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #93c5fd;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.nestai-suggestion-chip:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #bfdbfe;
+  transform: translateY(-1px);
+}
+
+/* Thinking Indicator */
+.nestai-thinking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.nestai-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.nestai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  animation: nestai-bounce 1.4s infinite ease-in-out both;
+}
+
+.nestai-dot:nth-child(1) { animation-delay: -0.32s; }
+.nestai-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes nestai-bounce {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.nestai-thinking-text {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+/* Footer / Input */
+.nestai-footer {
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nestai-input-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 4px 6px 4px 14px;
+  transition: all 0.2s ease;
+}
+
+.nestai-input-form:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.nestai-input-form.nestai-input-form-recording {
+  border-color: rgba(239, 68, 68, 0.65);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.2);
+}
+
+.nestai-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f8fafc;
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 8px 0;
+}
+
+.nestai-input::placeholder {
+  color: #64748b;
+}
+
+/* Voice Input / Microphone Button */
+.nestai-mic-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.nestai-mic-btn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: scale(1.05);
+}
+
+.nestai-mic-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nestai-mic-btn.nestai-mic-recording {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: #fca5a5;
+  color: #ffffff;
+  animation: nestai-mic-pulse 1.4s infinite ease-in-out;
+}
+
+@keyframes nestai-mic-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+    transform: scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    transform: scale(1);
+  }
+}
+
+/* Recording Status Indicator Banner */
+.nestai-recording-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: #fca5a5;
+  animation: nestai-fade-in 0.2s ease forwards;
+}
+
+.nestai-recording-indicator-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nestai-recording-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: nestai-rec-dot 1.1s infinite ease-in-out;
+}
+
+@keyframes nestai-rec-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+}
+
+.nestai-recording-text {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.nestai-recording-stop-btn {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fee2e2;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.nestai-recording-stop-btn:hover {
+  background: rgba(239, 68, 68, 0.45);
+  color: #ffffff;
+}
+
+/* Voice Error Banner */
+.nestai-voice-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px;
+  margin-bottom: 8px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: #fde68a;
+  animation: nestai-fade-in 0.2s ease forwards;
+}
+
+.nestai-voice-error-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.35;
+}
+
+.nestai-voice-error-icon {
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.nestai-voice-error-dismiss {
+  background: transparent;
+  border: none;
+  color: #fbbf24;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.nestai-voice-error-dismiss:hover {
+  background: rgba(245, 158, 11, 0.25);
+  color: #ffffff;
+}
+
+@keyframes nestai-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nestai-send-btn {
+  background: linear-gradient(135deg, #2563eb, #06b6d4);
+  border: none;
+  color: #ffffff;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.nestai-send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.nestai-send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .nestai-window {
+    bottom: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: 85vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .nestai-launcher-btn {
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 16px;
+    font-size: 0.86rem;
+  }
+}
