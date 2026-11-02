@@ -63,10 +63,20 @@ export const activityService = {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_ACTIVITIES);
       const list = stored ? JSON.parse(stored) : INITIAL_ACTIVITIES;
-      return list.map((item) => ({
-        ...item,
-        time: formatTimeAgo(item.timestamp || Date.now()),
-      }));
+      return list.map((item) => {
+        let actionStr = item.action;
+        let titleStr = item.title;
+        if (typeof item.action === "object" && item.action !== null) {
+          actionStr = item.action.action || item.action.details || "AI Feedback";
+          titleStr = item.action.title || item.action.details || item.title || "Paper update";
+        }
+        return {
+          ...item,
+          action: typeof actionStr === "string" ? actionStr : String(actionStr || "Activity"),
+          title: typeof titleStr === "string" ? titleStr : String(titleStr || "Research update"),
+          time: formatTimeAgo(item.timestamp || Date.now()),
+        };
+      });
     } catch {
       return INITIAL_ACTIVITIES.map((item) => ({
         ...item,
@@ -80,14 +90,26 @@ export const activityService = {
    */
   logActivity(action, title, type = "save", color = "purple") {
     try {
+      let act = action;
+      let ttl = title;
+      let typ = type;
+      let clr = color;
+
+      if (typeof action === "object" && action !== null) {
+        act = action.action || action.details || "Activity";
+        ttl = action.title || action.details || "Research update";
+        typ = action.type || "save";
+        clr = action.color || "purple";
+      }
+
       const current = this.getActivities();
       const newItem = {
         id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        action,
-        title,
+        action: String(act || "Activity"),
+        title: String(ttl || "Research update"),
         timestamp: Date.now(),
-        type,
-        color,
+        type: typ,
+        color: clr,
       };
 
       const updated = [newItem, ...current.map(({ time, ...rest }) => rest)].slice(0, 25);

@@ -7,6 +7,7 @@ import com.example.demo.controllers.AuthController.RegisterRequest;
 import com.example.demo.models.User;
 import com.example.demo.repos.UserRepository;
 import com.example.demo.services.GoogleTokenVerifierService;
+import com.example.demo.services.GoogleTokenVerifierServiceImpl;
 import com.example.demo.services.GoogleUserInfo;
 import com.example.demo.services.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -209,5 +210,30 @@ class GoogleAuthTest {
 
         ResponseEntity<?> loginResp = customAuthController.login(loginReq);
         assertEquals(HttpStatus.UNAUTHORIZED, loginResp.getStatusCode(), "Must reject password login on account with null password");
+    }
+
+    @Test
+    @DisplayName("Dev Google token through real GoogleTokenVerifierServiceImpl creates user and returns JWT")
+    void testDevGoogleLoginThroughRealVerifierService() {
+        GoogleTokenVerifierServiceImpl realVerifier = new GoogleTokenVerifierServiceImpl("");
+        AuthController controller = new AuthController(
+                userService,
+                realVerifier,
+                "dev-secret-key-for-researchnest-local-development-only-min32bytes!",
+                86400000L,
+                "dev"
+        );
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.idToken = "dev_google_token";
+
+        ResponseEntity<?> resp = controller.googleLogin(req);
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) resp.getBody();
+        assertNotNull(body.get("token"));
+        User user = (User) body.get("user");
+        assertNotNull(user);
+        assertEquals("alex.chen.google@stanford.edu", user.getEmail());
+        assertEquals("GOOGLE", user.getAuthProvider());
     }
 }

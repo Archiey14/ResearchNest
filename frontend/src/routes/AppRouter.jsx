@@ -8,9 +8,11 @@ import LandingPage from "../pages/LandingPage.jsx";
 import LegalPage from "../pages/LegalPage.jsx";
 import NotFoundPage from "../pages/NotFoundPage.jsx";
 import SavedPapersPage from "../pages/SavedPapersPage.jsx";
+import AdminDashboardPage from "../pages/AdminDashboardPage.jsx";
 import AppLayout from "../layouts/AppLayout.jsx";
 import PublicLayout from "../layouts/PublicLayout.jsx";
 import ProtectedRoute from "./ProtectedRoute.jsx";
+import AdminRoute from "./AdminRoute.jsx";
 
 export default function AppRouter() {
   return (
@@ -38,6 +40,10 @@ export default function AppRouter() {
             <Route path="discover" element={<DiscoverPage />} />
             <Route path="saved" element={<SavedPapersPage />} />
           </Route>
+        </Route>
+        <Route element={<AdminRoute />}>
+          <Route path="admin" element={<AdminDashboardPage />} />
+          <Route path="workspace/admin" element={<AdminDashboardPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

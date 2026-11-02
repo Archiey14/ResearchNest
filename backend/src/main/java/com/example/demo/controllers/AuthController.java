@@ -95,6 +95,10 @@ public class AuthController {
         public String otp;
     }
 
+    public static class Resend2faRequest {
+        public String email;
+    }
+
     public static class GoogleLoginRequest {
         public String idToken;
     }
@@ -129,12 +133,18 @@ public class AuthController {
     public static class TokenClaims {
         public final Long userId;
         public final String email;
+        public final String role;
         public final long issuedAt;
         public final long expiresAt;
 
         public TokenClaims(Long userId, String email, long issuedAt, long expiresAt) {
+            this(userId, email, "RESEARCHER", issuedAt, expiresAt);
+        }
+
+        public TokenClaims(Long userId, String email, String role, long issuedAt, long expiresAt) {
             this.userId = userId;
             this.email = email;
+            this.role = (role != null && !role.isBlank()) ? role : "RESEARCHER";
             this.issuedAt = issuedAt;
             this.expiresAt = expiresAt;
         }
@@ -233,6 +243,49 @@ public class AuthController {
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", "An error occurred during verification. Please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    @PostMapping("/login/resend-2fa")
+    public ResponseEntity<?> resend2fa(@RequestBody Resend2faRequest req) {
+        if (req == null || req.email == null || req.email.isBlank()) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Email is required.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
+
+        try {
+            String cleanEmail = req.email.trim().toLowerCase();
+            java.util.Optional<User> optUser = userService.findByEmail(cleanEmail);
+            if (optUser.isEmpty()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "If an account with that email exists, a verification code has been sent.");
+                return ResponseEntity.ok(response);
+            }
+
+            User user = optUser.get();
+            if ("GOOGLE".equalsIgnoreCase(user.getAuthProvider()) && user.getPassword() == null) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "This account uses Google Sign-In. 2FA is not available.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            }
+
+            userService.initiateLogin2fa(user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("twoFactorRequired", true);
+            response.put("email", user.getEmail());
+            response.put("message", "A new 6-digit verification code has been sent to your email.");
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An error occurred while resending the verification code. Please try again.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
@@ -452,6 +505,7 @@ public class AuthController {
             if (user.getId() != null) {
                 payloadJson.put("userId", user.getId());
             }
+            payloadJson.put("role", user.getRole() != null ? user.getRole() : "RESEARCHER");
             payloadJson.put("iat", now);
             payloadJson.put("exp", exp);
 
@@ -544,9 +598,10 @@ public class AuthController {
         }
 
         long userId = root.has("userId") ? root.get("userId").asLong() : 0L;
+        String role = root.has("role") ? root.get("role").asString() : "RESEARCHER";
         long iat = root.has("iat") ? root.get("iat").asLong() : 0L;
 
-        return new TokenClaims(userId, email, iat, exp);
+        return new TokenClaims(userId, email, role, iat, exp);
     }
 
     private String sign(String data) throws Exception {

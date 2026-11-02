@@ -105,12 +105,12 @@ export default function HomePage() {
       } catch {}
       return next;
     });
-    activityService.logActivity({
-      type: "ai_feedback",
-      action: "Negative feedback applied (Rocchio suppression)",
-      details: `Suppressed paper #${pidStr} to steer recommendations away from this topic.`,
-      paperId: pidStr,
-    });
+    activityService.logActivity(
+      "Negative feedback applied (Rocchio suppression)",
+      `Suppressed paper #${pidStr} to steer recommendations away from this topic.`,
+      "ai_feedback",
+      "peach"
+    );
   }
 
   async function handleHarvestOpenAlex() {
@@ -1211,8 +1211,16 @@ export default function HomePage() {
                     {item.type === "citation" && <Quote size={13} />}
                   </div>
                   <div className="activity-body">
-                    <p className="activity-action-text">{item.action}</p>
-                    <p className="activity-title-text">{item.title}</p>
+                    <p className="activity-action-text">
+                      {typeof item.action === "string"
+                        ? item.action
+                        : item.action?.action || item.action?.details || "Activity"}
+                    </p>
+                    <p className="activity-title-text">
+                      {typeof item.title === "string"
+                        ? item.title
+                        : item.title?.title || "Research Update"}
+                    </p>
                     <span className="activity-timestamp">{item.time}</span>
                   </div>
                 </div>

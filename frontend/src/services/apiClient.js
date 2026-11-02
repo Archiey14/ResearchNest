@@ -26,6 +26,15 @@ export async function apiRequest(endpoint, options = {}) {
   const data = isJson ? await response.json() : await response.text();
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("researchnest_token");
+      localStorage.removeItem("researchnest_authenticated");
+      localStorage.removeItem("researchnest_user");
+      if (typeof window !== "undefined" && window.location.pathname.startsWith("/workspace")) {
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/auth?mode=login&next=${next}`;
+      }
+    }
     const errorMsg =
       (typeof data === "object" && (data?.error || data?.message)) ||
       `Request failed with status ${response.status}`;

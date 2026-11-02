@@ -36,14 +36,58 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedUsers() {
         if (!userRepository.existsByEmail("alex.chen@stanford.edu")) {
-            userService.register(
+            User alex = userService.register(
                     "Alex Chen",
                     "alex.chen@stanford.edu",
                     "Password123!",
                     "Stanford University",
                     "Computer Science & AI Lab"
             );
-            System.out.println("✅ Seeded default researcher: alex.chen@stanford.edu");
+            alex.setRole("ADMIN");
+            userRepository.save(alex);
+            System.out.println("✅ Seeded default researcher & admin: alex.chen@stanford.edu");
+        } else {
+            userRepository.findByEmail("alex.chen@stanford.edu").ifPresent(alex -> {
+                if (!"ADMIN".equalsIgnoreCase(alex.getRole())) {
+                    alex.setRole("ADMIN");
+                    userRepository.save(alex);
+                }
+            });
+        }
+
+        if (!userRepository.existsByEmail("admin@researchnest.org")) {
+            User admin = userService.register(
+                    "Dr. Eleanor Vance",
+                    "admin@researchnest.org",
+                    "Admin2026!",
+                    "ResearchNest Operations",
+                    "Platform & AI Safety Lab"
+            );
+            admin.setRole("ADMIN");
+            userRepository.save(admin);
+            System.out.println("✅ Seeded primary platform administrator: admin@researchnest.org");
+        }
+
+        if (!userRepository.existsByEmail("sophia.zhang@berkeley.edu")) {
+            userService.register(
+                    "Dr. Sophia Zhang",
+                    "sophia.zhang@berkeley.edu",
+                    "Password123!",
+                    "UC Berkeley",
+                    "Berkeley Artificial Intelligence Research (BAIR)"
+            );
+            System.out.println("✅ Seeded researcher: sophia.zhang@berkeley.edu");
+        }
+
+        if (!userRepository.existsByEmail("marcus.thorne@mit.edu")) {
+            userService.register(
+                    "Marcus Thorne",
+                    "marcus.thorne@mit.edu",
+                    "Password123!",
+                    "MIT CSAIL",
+                    "Quantum Information & Computing"
+            );
+            System.out.println("✅ Seeded researcher: marcus.thorne@mit.edu");
         }
     }
 

@@ -1,7 +1,8 @@
-import { Bookmark, BookOpen, Compass, LayoutDashboard } from "lucide-react";
+import { Bookmark, BookOpen, Compass, LayoutDashboard, Shield } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getSavedCount } from "../services/savedPapersStore.js";
+import { authService } from "../services/authService.js";
 
 export default function Sidebar() {
   const [savedCount, setSavedCount] = useState(() => getSavedCount());
@@ -22,10 +23,14 @@ export default function Sidebar() {
     };
   }, []);
 
+  const currentUser = authService.getStoredUser();
+  const isAdmin = currentUser?.role?.toUpperCase() === "ADMIN";
+
   const navigationItems = [
     { label: "Dashboard", icon: LayoutDashboard, to: "/workspace" },
     { label: "Discover Papers", icon: Compass, to: "/workspace/discover" },
     { label: "Saved Papers", icon: Bookmark, to: "/workspace/saved", count: savedCount > 0 ? savedCount : undefined },
+    ...(isAdmin ? [{ label: "Admin Console", icon: Shield, to: "/admin" }] : []),
   ];
   return (
     <aside className="sidebar" aria-label="Researchly workspace">

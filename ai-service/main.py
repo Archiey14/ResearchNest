@@ -33,6 +33,8 @@ class SimilarRequest(BaseModel):
 
 class UserRecommendRequest(BaseModel):
     savedPaperIds: List[Any] = Field(default=[], description="List of paper IDs in the researcher's saved stack")
+    likedPaperIds: Optional[List[Any]] = Field(default=[], description="List of paper IDs explicitly liked by the researcher")
+    dislikedPaperIds: Optional[List[Any]] = Field(default=[], description="List of paper IDs explicitly disliked by the researcher")
     dismissedPaperIds: Optional[List[Any]] = Field(default=[], description="List of paper IDs dismissed/hidden by researcher")
     readDurations: Optional[Dict[str, float]] = Field(default={}, description="Reading duration in seconds per paper ID")
     topK: Optional[int] = Field(default=5, description="Number of recommendations to return")
@@ -122,12 +124,16 @@ def recommend_for_user(req: UserRecommendRequest):
 
     results = engine.recommend_for_user(
         saved_paper_ids=req.savedPaperIds,
+        liked_paper_ids=req.likedPaperIds or [],
+        disliked_paper_ids=req.dislikedPaperIds or [],
         dismissed_paper_ids=req.dismissedPaperIds or [],
         read_durations=req.readDurations or {},
         top_k=req.topK or 5
     )
     return {
         "userSavedPaperIds": req.savedPaperIds,
+        "likedCount": len(req.likedPaperIds or []),
+        "dislikedCount": len(req.dislikedPaperIds or []),
         "dismissedCount": len(req.dismissedPaperIds or []),
         "readingBoostsApplied": sum(1 for r in results if r.get("deepReadingBoost")),
         "count": len(results),
@@ -154,6 +160,28 @@ def harvest_openalex_endpoint(req: Optional[HarvestRequest] = None):
         sync_to_spring_boot=sync_sb
     )
     return result
+
+from chatbot import NestAIChatbot
+
+chatbot = NestAIChatbot(engine=engine)
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., description="User query or question")
+    history: Optional[List[Dict[str, str]]] = Field(default=[], description="Previous conversation messages")
+    currentPaperId: Optional[Any] = Field(default=None, description="Optional ID of paper currently being viewed/read")
+
+@app.post("/chat")
+def chat_endpoint(req: ChatRequest):
+    if len(engine.papers) == 0:
+        fetch_and_index_catalog()
+    
+    chatbot.set_engine(engine)
+    res = chatbot.answer_query(
+        query=req.message,
+        conversation_history=req.history,
+        current_paper_id=req.currentPaperId
+    )
+    return res
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

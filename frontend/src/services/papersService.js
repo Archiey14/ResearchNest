@@ -234,4 +234,33 @@ export const papersService = {
         reason: "Curated based on your active research stack and interests",
       }));
   },
+
+  /**
+   * Create a new paper
+   */
+  async createPaper(paperData) {
+    return await apiRequest("/papers", {
+      method: "POST",
+      body: JSON.stringify(paperData),
+    });
+  },
+
+  /**
+   * Update an existing paper
+   */
+  async updatePaper(paperId, paperData) {
+    return await apiRequest(`/papers/${paperId}`, {
+      method: "PUT",
+      body: JSON.stringify(paperData),
+    });
+  },
+
+  /**
+   * Delete paper by ID
+   */
+  async deletePaper(paperId) {
+    return await apiRequest(`/papers/${paperId}`, {
+      method: "DELETE",
+    });
+  },
 };

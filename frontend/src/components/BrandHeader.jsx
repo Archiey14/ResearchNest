@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Moon, Sun } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
+import { authService } from "../services/authService.js";
 
 export default function BrandHeader() {
   const [theme, setTheme] = useState(() => {
@@ -18,6 +19,8 @@ export default function BrandHeader() {
     }
     return "light";
   });
+
+  const [isAuth, setIsAuth] = useState(() => authService.isAuthenticated());
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -80,15 +83,31 @@ export default function BrandHeader() {
               )}
             </button>
 
-            <Link className="nav-sign-in" to="/auth?mode=login">
-              Sign In
-            </Link>
-            <Link
-              className="button button-primary nav-get-started"
-              to="/auth?mode=register"
-            >
-              Get started
-            </Link>
+            {isAuth ? (
+              <>
+                <Link className="nav-sign-in" to="/workspace">
+                  Workspace
+                </Link>
+                <Link
+                  className="button button-primary nav-get-started"
+                  to="/auth?mode=login"
+                >
+                  Sign In / Switch
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link className="nav-sign-in" to="/auth?mode=login">
+                  Sign In
+                </Link>
+                <Link
+                  className="button button-primary nav-get-started"
+                  to="/auth?mode=register"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       </div>

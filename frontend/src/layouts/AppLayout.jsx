@@ -17,6 +17,7 @@ import {
   Quote,
   Search,
   Settings,
+  Shield,
   Sparkles,
   Sun,
   User,
@@ -26,6 +27,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import { mockStacks } from "../data/mockPapers.js";
 import { authService } from "../services/authService.js";
 import { getSavedCount } from "../services/savedPapersStore.js";
+import NestAIChatbot from "../components/NestAIChatbot.jsx";
 
 const notificationsList = [
   {
@@ -169,10 +171,13 @@ export default function AppLayout() {
         .slice(0, 2)
     : "AC";
 
+  const isAdmin = currentUser?.role?.toUpperCase() === "ADMIN";
+
   const navTabs = [
     { label: "Dashboard", to: "/workspace", icon: LayoutDashboard },
     { label: "Discover", to: "/workspace/discover", icon: Compass },
     { label: "Saved Papers", to: "/workspace/saved", icon: BookOpen, badge: savedCount > 0 ? String(savedCount) : undefined },
+    ...(isAdmin ? [{ label: "Admin Console", to: "/admin", icon: Shield }] : []),
   ];
 
   return (
@@ -362,6 +367,14 @@ export default function AppLayout() {
                       <Compass size={15} />
                       <span>Literature Explorer</span>
                     </Link>
+                    <Link
+                      to="/admin"
+                      className="popover-menu-item"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <Shield size={15} style={{ color: "var(--color-accent)" }} />
+                      <span>Admin Console</span>
+                    </Link>
                   </div>
                   <div className="popover-footer">
                     <button
@@ -450,6 +463,9 @@ export default function AppLayout() {
           </div>
         </div>
       )}
+
+      {/* NestAI Scholarly Research Copilot Chatbot */}
+      <NestAIChatbot />
     </div>
   );
 }
