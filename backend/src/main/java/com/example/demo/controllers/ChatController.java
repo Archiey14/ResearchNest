@@ -1,7 +1,11 @@
 package com.example.demo.controllers;
 
+import com.example.demo.models.ChatQuery;
 import com.example.demo.models.Paper;
+import com.example.demo.models.User;
+import com.example.demo.repos.ChatQueryRepository;
 import com.example.demo.repos.PaperRepository;
+import com.example.demo.repos.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -11,16 +15,25 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/chat")
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"})
+@CrossOrigin(originPatterns = {"http://localhost:*", "http://127.0.0.1:*"})
 public class ChatController {
 
     private final PaperRepository paperRepository;
+    private final ChatQueryRepository chatQueryRepository;
+    private final UserRepository userRepository;
+    private final AuthController authController;
     private final RestTemplate restTemplate;
     private final String aiServiceUrl = "http://127.0.0.1:8000/chat";
 
     @Autowired
-    public ChatController(PaperRepository paperRepository) {
+    public ChatController(PaperRepository paperRepository,
+                          ChatQueryRepository chatQueryRepository,
+                          UserRepository userRepository,
+                          AuthController authController) {
         this.paperRepository = paperRepository;
+        this.chatQueryRepository = chatQueryRepository;
+        this.userRepository = userRepository;
+        this.authController = authController;
         this.restTemplate = new RestTemplate();
     }
 
@@ -28,10 +41,92 @@ public class ChatController {
         public String message;
         public List<Map<String, String>> history;
         public Object currentPaperId;
+        // Optional identity hints from the frontend (used only when the bearer token cannot be verified,
+        // e.g. local demo admin sessions).
+        public String userEmail;
+        public String userName;
+    }
+
+    /**
+     * Persist one chatbot question for the Admin Console. Never lets a logging failure break the chat.
+     */
+    private void recordQuery(String authHeader, ChatRequestPayload req, String query, String intent, String source) {
+        try {
+            String email = null;
+            String name = null;
+
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                try {
+                    AuthController.TokenClaims claims = authController.validateAndParseToken(authHeader.substring(7).trim());
+                    email = claims.email;
+                    User u = userRepository.findByEmail(email).orElse(null);
+                    if (u != null) {
+                        name = u.getName();
+                    }
+                } catch (Exception ignored) {
+                    // invalid/demo token: fall through to client-supplied hints
+                }
+            }
+
+            if (email == null && req != null && req.userEmail != null && !req.userEmail.isBlank()) {
+                email = req.userEmail.trim().toLowerCase();
+                name = req.userName;
+            }
+
+            Long paperId = null;
+            if (req != null && req.currentPaperId != null) {
+                try {
+                    paperId = Long.valueOf(String.valueOf(req.currentPaperId));
+                } catch (NumberFormatException ignored) {
+                    // non-numeric paper ids are not stored
+                }
+            }
+
+            String trimmed = query.length() > 2000 ? query.substring(0, 2000) : query;
+            ChatQuery saved = chatQueryRepository.save(new ChatQuery(
+                    email != null ? email : "anonymous",
+                    name != null && !name.isBlank() ? name : (email != null ? email : "Anonymous visitor"),
+                    trimmed,
+                    intent,
+                    source,
+                    paperId
+            ));
+            System.out.println("ChatController: recorded chat query #" + saved.getId()
+                    + " from " + saved.getUserEmail() + " [" + source + "]");
+        } catch (Exception e) {
+            System.err.println("ChatController: could not record chat query: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String intentOf(Object body) {
+        if (body instanceof Map<?, ?> m && m.get("intent") != null) {
+            return String.valueOf(m.get("intent"));
+        }
+        return "general";
+    }
+
+    /**
+     * Lightweight logging-only endpoint. The frontend calls it when the chat request itself could not be
+     * answered through this controller (e.g. it fell back to the AI microservice or offline mode), so the
+     * question still shows up in the Admin Console.
+     */
+    @PostMapping("/log")
+    public ResponseEntity<?> logQuery(
+            @RequestBody ChatRequestPayload req,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String q = (req != null && req.message != null) ? req.message.trim() : "";
+        if (q.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Message is required."));
+        }
+        recordQuery(authHeader, req, q, "general", "CLIENT_FALLBACK");
+        return ResponseEntity.ok(Map.of("logged", true));
     }
 
     @PostMapping
-    public ResponseEntity<?> handleChat(@RequestBody ChatRequestPayload req) {
+    public ResponseEntity<?> handleChat(
+            @RequestBody ChatRequestPayload req,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String userQuery = (req != null && req.message != null) ? req.message.trim() : "";
         if (userQuery.isEmpty()) {
             Map<String, Object> err = new HashMap<>();
@@ -59,6 +154,7 @@ public class ChatController {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
             ResponseEntity<Map> resp = restTemplate.postForEntity(aiServiceUrl, entity, Map.class);
             if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+                recordQuery(authHeader, req, userQuery, intentOf(resp.getBody()), "AI_SERVICE");
                 return ResponseEntity.ok(resp.getBody());
             }
         } catch (Exception e) {
@@ -66,7 +162,9 @@ public class ChatController {
         }
 
         // Fallback response generated from Spring Boot repository
-        return ResponseEntity.ok(buildFallbackResponse(userQuery));
+        Map<String, Object> fallback = buildFallbackResponse(userQuery);
+        recordQuery(authHeader, req, userQuery, intentOf(fallback), "FALLBACK");
+        return ResponseEntity.ok(fallback);
     }
 
     private Map<String, Object> buildFallbackResponse(String query) {

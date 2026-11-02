@@ -3,14 +3,41 @@ import { apiRequest } from "./apiClient.js";
 const AI_DIRECT_URL = "http://127.0.0.1:8000/chat";
 const STORAGE_KEY = "researchnest_chat_history";
 
+/**
+ * Tell the backend about a question that was NOT answered through Spring Boot /api/chat,
+ * so the Admin Console still records it. Fire-and-forget: never blocks or breaks the chat.
+ */
+function logQueryToBackend(payload) {
+  apiRequest("/chat/log", {
+    method: "POST",
+    body: JSON.stringify({
+      message: payload.message,
+      userEmail: payload.userEmail,
+      userName: payload.userName,
+      currentPaperId: payload.currentPaperId,
+    }),
+  }).catch((err) => {
+    console.warn("Could not record chatbot query for admin console:", err);
+  });
+}
+
 export const chatService = {
   /**
    * Send a query to the NestAI Copilot.
    * Attempts Spring Boot backend proxy first, falling back to direct Python AI microservice.
    */
   async sendMessage(message, history = [], currentPaperId = null) {
+    let storedUser = null;
+    try {
+      storedUser = JSON.parse(localStorage.getItem("researchnest_user") || "null");
+    } catch {
+      storedUser = null;
+    }
+
     const payload = {
       message: message.trim(),
+      userEmail: storedUser?.email || null,
+      userName: storedUser?.name || null,
       history: history.slice(-6).map((msg) => ({
         role: msg.role,
         content: msg.content,
@@ -39,6 +66,7 @@ export const chatService = {
         body: JSON.stringify(payload),
       });
       if (resp.ok) {
+        logQueryToBackend(payload);
         return await resp.json();
       }
     } catch (aiErr) {
@@ -46,6 +74,7 @@ export const chatService = {
     }
 
     // 3. Resilient offline response if both microservices are momentarily down
+    logQueryToBackend(payload);
     return {
       reply:
         "I am **NestAI Copilot**, your research literature and platform assistant.\n\n" +

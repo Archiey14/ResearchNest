@@ -19,6 +19,7 @@ import {
   Layers,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   Moon,
   Plus,
   RefreshCw,
@@ -35,7 +36,7 @@ import {
   Zap,
 } from "lucide-react";
 
-import { adminService } from "../services/adminService.js";
+import { adminService, toText } from "../services/adminService.js";
 import { papersService } from "../services/papersService.js";
 import { authService } from "../services/authService.js";
 import "../styles/admin.css";
@@ -53,6 +54,8 @@ export default function AdminDashboardPage() {
   const [papers, setPapers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [aiStatus, setAiStatus] = useState(null);
+  const [chatQueries, setChatQueries] = useState([]);
+  const [chatSearch, setChatSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [syncingAi, setSyncingAi] = useState(false);
@@ -128,28 +131,95 @@ export default function AdminDashboardPage() {
     loadAllData();
   }, []);
 
+  // Live updates: poll chatbot queries every 5s while the page is visible.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function poll() {
+      if (document.hidden) return;
+      try {
+        const fresh = await adminService.getChatQueries("", { strict: true });
+        if (cancelled) return;
+        setChatQueries((prev) => {
+          const unchanged =
+            prev.length === fresh.length &&
+            (fresh.length === 0 || String(prev[0]?.id) === String(fresh[0]?.id));
+          return unchanged ? prev : fresh;
+        });
+      } catch {
+        // keep showing the last good list if a poll fails
+      }
+    }
+
+    const timer = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
   async function loadAllData() {
     setLoading(true);
     try {
-      const [statsData, usersData, papersData, logsData, aiData] = await Promise.all([
+      const [statsData, usersData, papersData, logsData, aiData, chatData] = await Promise.all([
         adminService.getStats(),
         adminService.getUsers(),
         papersService.getPapers(),
         adminService.getActivity(),
         adminService.getAiStatus(),
+        adminService.getChatQueries(),
       ]);
 
       setStats(statsData);
-      setUsers(usersData);
-      setPapers(papersData);
-      setLogs(logsData);
+      setUsers(Array.isArray(usersData) ? usersData : []);
+      setPapers(Array.isArray(papersData) ? papersData : []);
+      setLogs(Array.isArray(logsData) ? logsData : []);
       setAiStatus(aiData);
+      setChatQueries(Array.isArray(chatData) ? chatData : []);
     } catch (err) {
       console.error("Error loading admin data:", err);
       showToast("Error loading some telemetry. Showing cached state.", "error");
     } finally {
       setLoading(false);
     }
+  }
+
+  // Chatbot query log
+  async function handleRefreshChatQueries() {
+    try {
+      const fresh = await adminService.getChatQueries("", { strict: true });
+      setChatQueries(fresh);
+      showToast(`Loaded ${fresh.length} chatbot queries.`, "info");
+    } catch (err) {
+      showToast(
+        `Could not load chatbot queries: ${err.message}. Restart the backend with the latest build.`,
+        "error"
+      );
+    }
+  }
+
+  async function handleClearChatQueries() {
+    if (!window.confirm("Permanently clear the entire chatbot query log?")) return;
+    try {
+      await adminService.clearChatQueries();
+      setChatQueries([]);
+      showToast("Chatbot query log cleared.");
+    } catch (err) {
+      showToast(err.message || "Could not clear chatbot query log.", "error");
+    }
+  }
+
+  function handleExportChatQueries() {
+    const blob = new Blob([JSON.stringify(chatQueries, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `researchnest-chatbot-queries-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Chatbot queries exported as JSON.");
   }
 
   // AI Vector Space Sync
@@ -390,6 +460,17 @@ export default function AdminDashboardPage() {
     return l.severity?.toUpperCase() === logFilter.toUpperCase();
   });
 
+  const filteredChatQueries = chatQueries.filter((c) => {
+    const q = chatSearch.trim().toLowerCase();
+    return (
+      !q ||
+      c.query?.toLowerCase().includes(q) ||
+      c.userEmail?.toLowerCase().includes(q) ||
+      c.userName?.toLowerCase().includes(q) ||
+      c.intent?.toLowerCase().includes(q)
+    );
+  });
+
   const isAiConnected = aiStatus?.connected;
 
   return (
@@ -553,6 +634,16 @@ export default function AdminDashboardPage() {
           >
             <Activity size={17} />
             <span>Audit & Logs</span>
+          </button>
+
+          <button
+            type="button"
+            className={`admin-tab-btn ${activeTab === "chat" ? "active" : ""}`}
+            onClick={() => setActiveTab("chat")}
+          >
+            <MessageSquare size={17} />
+            <span>Chatbot Queries</span>
+            <span className="admin-tab-count">{chatQueries.length}</span>
           </button>
         </nav>
 
@@ -863,8 +954,8 @@ export default function AdminDashboardPage() {
                             {item.severity || "INFO"}
                           </span>
                           <div className="admin-log-content">
-                            <div className="admin-log-title">{item.title}</div>
-                            <div className="admin-log-detail">{item.detail}</div>
+                            <div className="admin-log-title">{toText(item.title)}</div>
+                            <div className="admin-log-detail">{toText(item.detail)}</div>
                           </div>
                           <span className="admin-log-time">
                             {new Date(item.time).toLocaleTimeString([], {
@@ -1349,14 +1440,14 @@ export default function AdminDashboardPage() {
                       <div className="ai-spec-box">
                         <span className="ai-spec-label">Indexed Papers</span>
                         <span className="ai-spec-value">
-                          {aiStatus?.indexedPapersCount || papers.length}
+                          {toText(aiStatus?.indexedPapersCount, String(papers.length))}
                         </span>
                       </div>
 
                       <div className="ai-spec-box">
                         <span className="ai-spec-label">Vector Space Matrix</span>
                         <span className="ai-spec-value">
-                          {aiStatus?.vectorSpaceDim
+                          {Array.isArray(aiStatus?.vectorSpaceDim)
                             ? `${aiStatus.vectorSpaceDim[0]} × ${aiStatus.vectorSpaceDim[1]}`
                             : `${papers.length} × 1024`}
                         </span>
@@ -1553,14 +1644,137 @@ export default function AdminDashboardPage() {
                           {item.severity || "INFO"}
                         </span>
                         <div className="admin-log-content">
-                          <div className="admin-log-title">{item.title}</div>
-                          <div className="admin-log-detail">{item.detail}</div>
+                          <div className="admin-log-title">{toText(item.title)}</div>
+                          <div className="admin-log-detail">{toText(item.detail)}</div>
                         </div>
                         <span className="admin-log-time">
                           {new Date(item.time).toLocaleString()}
                         </span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+              {/* TAB 6: CHATBOT QUERIES */}
+              {activeTab === "chat" && (
+                <div>
+                  <div className="admin-section-header">
+                    <div className="admin-section-title-wrap">
+                      <h2>NestAI Chatbot Queries</h2>
+                      <p>
+                        Every question researchers ask the NestAI Copilot, with who asked, when, and how it was answered.
+                      </p>
+                    </div>
+
+                    <div className="admin-section-actions">
+                      <span
+                        className="admin-health-pill healthy"
+                        title="This list refreshes automatically every 5 seconds"
+                      >
+                        <span className="admin-pulse-dot" />
+                        <span>Live · every 5s</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={handleRefreshChatQueries}
+                      >
+                        <RefreshCw size={15} />
+                        <span>Refresh</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={handleExportChatQueries}
+                        disabled={chatQueries.length === 0}
+                      >
+                        <Download size={15} />
+                        <span>Export JSON</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={handleClearChatQueries}
+                        disabled={chatQueries.length === 0}
+                      >
+                        <Trash2 size={15} />
+                        <span>Clear Log</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="admin-filter-bar">
+                    <div className="admin-search-wrap">
+                      <Search size={16} style={{ color: "var(--color-muted)" }} />
+                      <input
+                        type="search"
+                        className="admin-search-input"
+                        placeholder="Search by question text, user name, email, or intent..."
+                        value={chatSearch}
+                        onChange={(e) => setChatSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="admin-table-container">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Asked By</th>
+                          <th style={{ width: "45%" }}>Question</th>
+                          <th>Intent</th>
+                          <th>Answered By</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredChatQueries.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              style={{
+                                textAlign: "center",
+                                padding: "3rem",
+                                color: "var(--color-muted)",
+                              }}
+                            >
+                              {chatQueries.length === 0
+                                ? "No chatbot queries recorded yet. Questions asked in NestAI will appear here."
+                                : "No queries match the search."}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredChatQueries.map((c) => (
+                            <tr key={c.id}>
+                              <td style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                                {c.time ? new Date(c.time).toLocaleString() : "—"}
+                              </td>
+                              <td>
+                                <div className="user-cell-details">
+                                  <span className="user-cell-name">{c.userName}</span>
+                                  <span className="user-cell-email">{c.userEmail}</span>
+                                </div>
+                              </td>
+                              <td style={{ fontWeight: 600, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                {c.query}
+                              </td>
+                              <td>
+                                <span className="admin-pill-tag">{c.intent || "general"}</span>
+                              </td>
+                              <td>
+                                <span className="badge-provider">
+                                  {c.source === "AI_SERVICE"
+                                    ? "AI Engine"
+                                    : c.source === "FALLBACK"
+                                    ? "Built-in"
+                                    : c.source || "—"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}

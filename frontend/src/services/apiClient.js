@@ -26,7 +26,8 @@ export async function apiRequest(endpoint, options = {}) {
   const data = isJson ? await response.json() : await response.text();
 
   if (!response.ok) {
-    if (response.status === 401) {
+    const isLocalDemoSession = !!token && token.endsWith(".dev_local_admin_bypass_signature");
+    if (response.status === 401 && !isLocalDemoSession) {
       localStorage.removeItem("researchnest_token");
       localStorage.removeItem("researchnest_authenticated");
       localStorage.removeItem("researchnest_user");

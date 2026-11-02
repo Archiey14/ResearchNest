@@ -1,7 +1,9 @@
 package com.example.demo.controllers;
 
+import com.example.demo.models.ChatQuery;
 import com.example.demo.models.Paper;
 import com.example.demo.models.User;
+import com.example.demo.repos.ChatQueryRepository;
 import com.example.demo.repos.UserRepository;
 import com.example.demo.services.PaperService;
 import com.example.demo.services.RecommendationService;
@@ -19,13 +21,14 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"})
+@CrossOrigin(originPatterns = {"http://localhost:*", "http://127.0.0.1:*"})
 public class AdminController {
 
     private final UserService userService;
     private final UserRepository userRepository;
     private final PaperService paperService;
     private final RecommendationService recommendationService;
+    private final ChatQueryRepository chatQueryRepository;
     private final RestTemplate restTemplate = new RestTemplate();
     private static final String AI_SERVICE_URL = "http://127.0.0.1:8000";
 
@@ -33,11 +36,13 @@ public class AdminController {
     public AdminController(UserService userService,
                            UserRepository userRepository,
                            PaperService paperService,
-                           RecommendationService recommendationService) {
+                           RecommendationService recommendationService,
+                           ChatQueryRepository chatQueryRepository) {
         this.userService = userService;
         this.userRepository = userRepository;
         this.paperService = paperService;
         this.recommendationService = recommendationService;
+        this.chatQueryRepository = chatQueryRepository;
     }
 
     public static class AdminUserCreateRequest {
@@ -315,6 +320,49 @@ public class AdminController {
 
         // Sort descending by time if available
         return ResponseEntity.ok(events);
+    }
+
+    /**
+     * All questions asked in the NestAI chatbot, newest first (max 500).
+     */
+    @GetMapping("/chat-queries")
+    public ResponseEntity<List<Map<String, Object>>> getChatQueries(
+            @RequestParam(required = false) String search) {
+        List<ChatQuery> list = chatQueryRepository.findTop500ByOrderByCreatedAtDesc();
+
+        if (search != null && !search.isBlank()) {
+            String q = search.trim().toLowerCase();
+            list = list.stream()
+                    .filter(c -> (c.getQuery() != null && c.getQuery().toLowerCase().contains(q))
+                            || (c.getUserEmail() != null && c.getUserEmail().toLowerCase().contains(q))
+                            || (c.getUserName() != null && c.getUserName().toLowerCase().contains(q)))
+                    .collect(Collectors.toList());
+        }
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (ChatQuery c : list) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("id", c.getId());
+            row.put("userEmail", c.getUserEmail());
+            row.put("userName", c.getUserName());
+            row.put("query", c.getQuery());
+            row.put("intent", c.getIntent());
+            row.put("source", c.getSource());
+            row.put("paperId", c.getPaperId());
+            row.put("time", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
+            out.add(row);
+        }
+        return ResponseEntity.ok(out);
+    }
+
+    /**
+     * Clear the recorded chatbot query log.
+     */
+    @DeleteMapping("/chat-queries")
+    public ResponseEntity<Map<String, Object>> clearChatQueries() {
+        long count = chatQueryRepository.count();
+        chatQueryRepository.deleteAll();
+        return ResponseEntity.ok(Map.of("message", "Chatbot query log cleared.", "deleted", count));
     }
 
     private Map<String, Object> checkAiServiceHealth() {

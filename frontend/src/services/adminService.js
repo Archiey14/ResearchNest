@@ -54,6 +54,41 @@ const FALLBACK_USERS = [
   },
 ];
 
+/**
+ * Coerce any value into something React can safely render as a child.
+ * Objects/arrays (e.g. an error payload or nested JSON) become strings.
+ */
+export function toText(value, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    if (typeof value.message === "string") return value.message;
+    if (typeof value.error === "string") return value.error;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+function normalizeActivity(list) {
+  return list.map((item, idx) => {
+    const e = item && typeof item === "object" ? item : { detail: item };
+    return {
+      id: toText(e.id, `evt-${idx}`),
+      type: toText(e.type, "EVENT"),
+      severity: toText(e.severity, "INFO").toUpperCase(),
+      title: toText(e.title, "System event"),
+      detail: toText(e.detail),
+      time: toText(e.time, new Date().toISOString()),
+    };
+  });
+}
+
 export const adminService = {
   /**
    * Fetch system-wide telemetry and overview statistics
@@ -224,7 +259,7 @@ export const adminService = {
     try {
       const data = await apiRequest("/admin/activity");
       if (Array.isArray(data) && data.length > 0) {
-        return data;
+        return normalizeActivity(data);
       }
     } catch {
       // fallback
@@ -264,6 +299,38 @@ export const adminService = {
         time: new Date(Date.now() - 180 * 60 * 1000).toISOString(),
       },
     ];
+  },
+
+  /**
+   * Every question users asked the NestAI chatbot (newest first)
+   */
+  async getChatQueries(search = "", { strict = false } = {}) {
+    try {
+      const qs = search && search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+      const data = await apiRequest(`/admin/chat-queries${qs}`);
+      if (Array.isArray(data)) {
+        return data.map((c, idx) => ({
+          id: toText(c?.id, `chat-${idx}`),
+          userEmail: toText(c?.userEmail, "anonymous"),
+          userName: toText(c?.userName, "Anonymous visitor"),
+          query: toText(c?.query),
+          intent: toText(c?.intent, "general"),
+          source: toText(c?.source, ""),
+          time: toText(c?.time, ""),
+        }));
+      }
+    } catch (err) {
+      console.warn("Could not fetch chatbot queries:", err);
+      if (strict) throw err;
+    }
+    return [];
+  },
+
+  /**
+   * Clear the recorded chatbot query log
+   */
+  async clearChatQueries() {
+    return await apiRequest("/admin/chat-queries", { method: "DELETE" });
   },
 
   /**

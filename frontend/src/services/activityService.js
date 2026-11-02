@@ -4,8 +4,13 @@
  * citation exports, and dynamic monthly metrics for the researcher dashboard.
  */
 
-const STORAGE_KEY_ACTIVITIES = "researchnest_live_activities";
+const STORAGE_KEY_ACTIVITIES = "researchnest_live_activities_v2";
 const STORAGE_KEY_HISTORY = "researchnest_reading_history";
+
+// Clear any v1 stale data that had corrupted object shapes
+try {
+  localStorage.removeItem("researchnest_live_activities");
+} catch (_) {}
 
 const INITIAL_ACTIVITIES = [
   {
@@ -64,16 +69,36 @@ export const activityService = {
       const stored = localStorage.getItem(STORAGE_KEY_ACTIVITIES);
       const list = stored ? JSON.parse(stored) : INITIAL_ACTIVITIES;
       return list.map((item) => {
-        let actionStr = item.action;
-        let titleStr = item.title;
-        if (typeof item.action === "object" && item.action !== null) {
-          actionStr = item.action.action || item.action.details || "AI Feedback";
-          titleStr = item.action.title || item.action.details || item.title || "Paper update";
+        // Normalize any possible corrupted shape — always produce plain strings
+        const rawAction = item.action;
+        const rawTitle = item.title;
+
+        let actionStr;
+        let titleStr;
+
+        if (typeof rawAction === "string") {
+          actionStr = rawAction;
+        } else if (rawAction && typeof rawAction === "object") {
+          actionStr = rawAction.action || rawAction.details || rawAction.title || "Activity";
+        } else {
+          actionStr = "Activity";
         }
+
+        if (typeof rawTitle === "string") {
+          titleStr = rawTitle;
+        } else if (rawTitle && typeof rawTitle === "object") {
+          titleStr = rawTitle.title || rawTitle.details || rawTitle.action || "Research update";
+        } else {
+          titleStr = "Research update";
+        }
+
         return {
-          ...item,
-          action: typeof actionStr === "string" ? actionStr : String(actionStr || "Activity"),
-          title: typeof titleStr === "string" ? titleStr : String(titleStr || "Research update"),
+          id: item.id || `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          action: String(actionStr),
+          title: String(titleStr),
+          timestamp: item.timestamp || Date.now(),
+          type: typeof item.type === "string" ? item.type : "save",
+          color: typeof item.color === "string" ? item.color : "purple",
           time: formatTimeAgo(item.timestamp || Date.now()),
         };
       });

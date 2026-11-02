@@ -1202,29 +1202,40 @@ export default function HomePage() {
             </div>
 
             <div className="activity-stream-list">
-              {activities.slice(0, 5).map((item) => (
-                <div key={item.id} className="activity-item-card">
-                  <div className={`activity-icon-box activity-box-${item.color || "purple"}`}>
-                    {item.type === "save" && <Bookmark size={13} />}
-                    {item.type === "note" && <FileText size={13} />}
-                    {item.type === "stack" && <Layers size={13} />}
-                    {item.type === "citation" && <Quote size={13} />}
+              {activities.slice(0, 5).map((item) => {
+                // Final safety — guarantee strings even if service returned something unexpected
+                const safeAction =
+                  typeof item.action === "string"
+                    ? item.action
+                    : typeof item.action === "object" && item.action
+                    ? String(item.action.action || item.action.details || "Activity")
+                    : String(item.action ?? "Activity");
+                const safeTitle =
+                  typeof item.title === "string"
+                    ? item.title
+                    : typeof item.title === "object" && item.title
+                    ? String(item.title.title || item.title.details || "Research update")
+                    : String(item.title ?? "Research update");
+                const safeTime = typeof item.time === "string" ? item.time : "Just now";
+                const safeType = typeof item.type === "string" ? item.type : "save";
+                const safeColor = typeof item.color === "string" ? item.color : "purple";
+                const safeId = item.id || `act-${Math.random().toString(36).slice(2, 9)}`;
+                return (
+                  <div key={safeId} className="activity-item-card">
+                    <div className={`activity-icon-box activity-box-${safeColor}`}>
+                      {safeType === "save" && <Bookmark size={13} />}
+                      {safeType === "note" && <FileText size={13} />}
+                      {safeType === "stack" && <Layers size={13} />}
+                      {safeType === "citation" && <Quote size={13} />}
+                    </div>
+                    <div className="activity-body">
+                      <p className="activity-action-text">{safeAction}</p>
+                      <p className="activity-title-text">{safeTitle}</p>
+                      <span className="activity-timestamp">{safeTime}</span>
+                    </div>
                   </div>
-                  <div className="activity-body">
-                    <p className="activity-action-text">
-                      {typeof item.action === "string"
-                        ? item.action
-                        : item.action?.action || item.action?.details || "Activity"}
-                    </p>
-                    <p className="activity-title-text">
-                      {typeof item.title === "string"
-                        ? item.title
-                        : item.title?.title || "Research Update"}
-                    </p>
-                    <span className="activity-timestamp">{item.time}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </aside>
