@@ -41,14 +41,19 @@ public class ChatController {
         public String message;
         public List<Map<String, String>> history;
         public Object currentPaperId;
-        // Optional identity hints from the frontend (used only when the bearer token cannot be verified,
-        // e.g. local demo admin sessions).
+        // Deprecated and IGNORED. Older frontends still send these, but the server never trusts
+        // client-supplied identity: a query is attributed only to the account proven by a valid
+        // Bearer token. The fields are kept so existing clients' JSON still deserializes.
         public String userEmail;
         public String userName;
     }
 
     /**
      * Persist one chatbot question for the Admin Console. Never lets a logging failure break the chat.
+     *
+     * The author is taken ONLY from a verified Bearer token whose account still exists in the database.
+     * Anything else (no token, invalid/expired token, deleted account, forged userEmail in the body)
+     * is recorded as "anonymous", so nobody can plant entries under another person's identity.
      */
     private void recordQuery(String authHeader, ChatRequestPayload req, String query, String intent, String source) {
         try {
@@ -58,19 +63,14 @@ public class ChatController {
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 try {
                     AuthController.TokenClaims claims = authController.validateAndParseToken(authHeader.substring(7).trim());
-                    email = claims.email;
-                    User u = userRepository.findByEmail(email).orElse(null);
+                    User u = userRepository.findByEmail(claims.email).orElse(null);
                     if (u != null) {
+                        email = u.getEmail();
                         name = u.getName();
                     }
                 } catch (Exception ignored) {
-                    // invalid/demo token: fall through to client-supplied hints
+                    // invalid/expired token: treat as anonymous
                 }
-            }
-
-            if (email == null && req != null && req.userEmail != null && !req.userEmail.isBlank()) {
-                email = req.userEmail.trim().toLowerCase();
-                name = req.userName;
             }
 
             Long paperId = null;

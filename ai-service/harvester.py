@@ -225,11 +225,28 @@ def ingest_and_expand_catalog(
     if sync_to_spring_boot and added_papers:
         try:
             batch_url = f"{spring_boot_api}/batch"
+
+            # The Spring Boot backend only accepts paper writes from an ADMIN or from this
+            # service presenting the shared secret. Set INTERNAL_API_KEY (same value as in
+            # backend/.env) in the environment that starts this service.
+            sync_headers = {}
+            service_key = os.environ.get("INTERNAL_API_KEY", "").strip()
+            if service_key:
+                sync_headers["X-Service-Key"] = service_key
+
             # Format payload for Spring Boot Paper entity
-            resp = requests.post(batch_url, json=added_papers, timeout=5)
+            resp = requests.post(batch_url, json=added_papers, headers=sync_headers, timeout=5)
             if resp.status_code in (200, 201):
                 synced_to_spring_boot = True
                 print(f"✅ Successfully synced {len(added_papers)} papers to Spring Boot.")
+            elif resp.status_code in (401, 403):
+                print(
+                    "⚠️ Spring Boot rejected the batch sync (HTTP "
+                    f"{resp.status_code}). Set INTERNAL_API_KEY in this service's environment to the "
+                    "same value as INTERNAL_API_KEY in backend/.env. Papers are still active in the AI Vector Space."
+                )
+            else:
+                print(f"⚠️ Spring Boot batch sync failed (HTTP {resp.status_code}). Papers are active in AI Vector Space.")
         except Exception as e:
             print(f"⚠️ Could not sync batch to Spring Boot ({e}). Papers are active in AI Vector Space.")
 

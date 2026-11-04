@@ -215,7 +215,7 @@ class GoogleAuthTest {
     @Test
     @DisplayName("Dev Google token through real GoogleTokenVerifierServiceImpl creates user and returns JWT")
     void testDevGoogleLoginThroughRealVerifierService() {
-        GoogleTokenVerifierServiceImpl realVerifier = new GoogleTokenVerifierServiceImpl("");
+        GoogleTokenVerifierServiceImpl realVerifier = new GoogleTokenVerifierServiceImpl("", true);
         AuthController controller = new AuthController(
                 userService,
                 realVerifier,

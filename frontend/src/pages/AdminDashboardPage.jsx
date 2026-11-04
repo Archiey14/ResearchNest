@@ -1494,7 +1494,7 @@ export default function AdminDashboardPage() {
                     >
                       <select
                         className="admin-filter-select"
-                        style={{ flex: 1, minWidth: "300px" }}
+                        style={{ flex: 1, minWidth: "min(300px, 100%)" }}
                         value={testPaperId}
                         onChange={(e) => setTestPaperId(e.target.value)}
                       >

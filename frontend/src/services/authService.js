@@ -1,4 +1,5 @@
 import { apiRequest } from "./apiClient.js";
+import { DEMO_MODE } from "./demoMode.js";
 
 const DEFAULT_USER = {
   id: 1,
@@ -6,7 +7,7 @@ const DEFAULT_USER = {
   email: "alex.chen@stanford.edu",
   institution: "Stanford University",
   department: "Computer Science & AI Lab",
-  role: "ADMIN",
+  role: DEMO_MODE ? "ADMIN" : "RESEARCHER",
 };
 
 export const authService = {
@@ -64,7 +65,7 @@ export const authService = {
         clean === "alex.chen@stanford.edu" ||
         clean?.endsWith("@researchnest.org");
 
-      if (isDemoAdmin && otp?.trim() === "123456") {
+      if (DEMO_MODE && isDemoAdmin && otp?.trim() === "123456") {
         console.warn("Using local admin session fallback for demo account:", clean);
         const demoUser =
           clean === "admin@researchnest.org"

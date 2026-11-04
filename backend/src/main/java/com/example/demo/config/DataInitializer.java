@@ -6,6 +6,7 @@ import com.example.demo.repos.PaperRepository;
 import com.example.demo.repos.UserRepository;
 import com.example.demo.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -28,13 +29,51 @@ public class DataInitializer implements CommandLineRunner {
         this.userService = userService;
     }
 
+    @Value("${app.dev-mode:false}")
+    private boolean devMode;
+
+    @Value("${app.bootstrap-admin.email:}")
+    private String bootstrapAdminEmail;
+
+    @Value("${app.bootstrap-admin.password:}")
+    private String bootstrapAdminPassword;
+
     @Override
     public void run(String... args) {
-        seedUsers();
+        if (devMode) {
+            // Demo accounts with well-known passwords: local development only.
+            seedDemoUsers();
+        } else {
+            bootstrapAdminIfConfigured();
+        }
         seedPapers();
     }
 
-    private void seedUsers() {
+    /**
+     * Creates the first administrator from BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD (if provided).
+     */
+    private void bootstrapAdminIfConfigured() {
+        if (bootstrapAdminEmail == null || bootstrapAdminEmail.isBlank()
+                || bootstrapAdminPassword == null || bootstrapAdminPassword.length() < 8) {
+            return;
+        }
+        String email = bootstrapAdminEmail.trim().toLowerCase();
+        if (userRepository.existsByEmail(email)) {
+            return;
+        }
+        User admin = userService.register(
+                "Administrator",
+                email,
+                bootstrapAdminPassword,
+                "ResearchNest",
+                "Administration"
+        );
+        admin.setRole("ADMIN");
+        userRepository.save(admin);
+        System.out.println("Created bootstrap administrator account: " + email);
+    }
+
+    private void seedDemoUsers() {
         if (!userRepository.existsByEmail("alex.chen@stanford.edu")) {
             User alex = userService.register(
                     "Alex Chen",

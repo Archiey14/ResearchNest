@@ -6,6 +6,7 @@ import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -31,6 +32,17 @@ public class UserService {
     private EmailService emailService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final ExecutorService emailExecutor = Executors.newFixedThreadPool(4);
+
+    /**
+     * Developer mode (app.dev-mode=true). Enables conveniences that must never be on in production:
+     * printing OTPs to the console and the fixed master OTP for the seeded demo accounts.
+     */
+    @Value("${app.dev-mode:false}")
+    private boolean devMode;
+
+    public void setDevMode(boolean devMode) {
+        this.devMode = devMode;
+    }
 
     public UserService(UserRepository userRepository) {
         this(userRepository, null);
@@ -230,12 +242,15 @@ public class UserService {
         user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
-        System.out.println("\n========================================================");
-        System.out.println("🔑 [RESEARCHNEST PASSWORD RESET OTP]");
-        System.out.println("   Recipient : " + cleanEmail);
-        System.out.println("   OTP Code  : " + otp);
-        System.out.println("========================================================\n");
-        log.info("🔑 [PASSWORD RESET OTP] Generated for {}: {}", cleanEmail, otp);
+        if (devMode) {
+            System.out.println("\n========================================================");
+            System.out.println("[DEV MODE] PASSWORD RESET OTP");
+            System.out.println("   Recipient : " + cleanEmail);
+            System.out.println("   OTP Code  : " + otp);
+            System.out.println("========================================================\n");
+        } else {
+            log.info("Password reset code issued for {}", cleanEmail);
+        }
 
         CompletableFuture<Void> sendFuture = CompletableFuture.runAsync(() -> {
             try {
@@ -426,16 +441,20 @@ public class UserService {
         user.setTwoFactorAttempts(0);
         userRepository.save(user);
 
-        System.out.println("\n========================================================");
-        System.out.println("🔐 [RESEARCHNEST 2FA LOGIN OTP]");
-        System.out.println("   Recipient  : " + cleanEmail);
-        System.out.println("   OTP Code   : " + otp);
-        System.out.println("   Master Dev : 123456 (valid for admin/demo accounts)");
-        System.out.println("========================================================\n");
-        log.info("🔐 [2FA LOGIN OTP] Generated for {}: {}", cleanEmail, otp);
+        if (devMode) {
+            System.out.println("\n========================================================");
+            System.out.println("[DEV MODE] 2FA LOGIN OTP");
+            System.out.println("   Recipient  : " + cleanEmail);
+            System.out.println("   OTP Code   : " + otp);
+            System.out.println("   Master Dev : 123456 (valid for the seeded demo accounts)");
+            System.out.println("========================================================\n");
+        } else {
+            log.info("2FA login code issued for {}", cleanEmail);
+        }
 
-        boolean isFakeDemoAdmin = "admin@researchnest.org".equalsIgnoreCase(cleanEmail)
-                || "alex.chen@stanford.edu".equalsIgnoreCase(cleanEmail);
+        boolean isFakeDemoAdmin = devMode
+                && ("admin@researchnest.org".equalsIgnoreCase(cleanEmail)
+                || "alex.chen@stanford.edu".equalsIgnoreCase(cleanEmail));
 
         CompletableFuture<Void> sendFuture = CompletableFuture.runAsync(() -> {
             try {
@@ -508,9 +527,10 @@ public class UserService {
             throw new IllegalArgumentException("This account uses Google Sign-In. 2FA is not available.");
         }
 
-        // Convenient developer master OTP for seeded admin & demo accounts
-        boolean isFakeDemoAdmin = "admin@researchnest.org".equalsIgnoreCase(cleanEmail)
-                || "alex.chen@stanford.edu".equalsIgnoreCase(cleanEmail);
+        // Developer master OTP for the seeded demo accounts. Only active when app.dev-mode=true.
+        boolean isFakeDemoAdmin = devMode
+                && ("admin@researchnest.org".equalsIgnoreCase(cleanEmail)
+                || "alex.chen@stanford.edu".equalsIgnoreCase(cleanEmail));
 
         if (isFakeDemoAdmin && "123456".equals(otp.trim())) {
             user.setTwoFactorCodeHash(null);

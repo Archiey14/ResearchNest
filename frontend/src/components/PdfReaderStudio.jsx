@@ -174,7 +174,13 @@ export default function PdfReaderStudio({ paper, onClose, onToggleSave, isSaved 
 
       // Position relative to manuscript container
       const top = rect.top - containerRect.top + manuscriptRef.current.scrollTop;
-      const left = rect.left - containerRect.left + rect.width / 2;
+      const rawLeft = rect.left - containerRect.left + rect.width / 2;
+      // Keep the centred floating toolbar fully inside the manuscript pane on narrow screens
+      const halfToolbar = Math.min(220, Math.max(containerRect.width - 24, 0) / 2);
+      const left = Math.min(
+        Math.max(rawLeft, halfToolbar + 12),
+        Math.max(containerRect.width - halfToolbar - 12, halfToolbar + 12),
+      );
 
       setSelectionRange({
         text,

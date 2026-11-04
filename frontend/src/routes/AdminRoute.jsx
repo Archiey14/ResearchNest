@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, Link } from "react-router-dom";
 import { authService } from "../services/authService.js";
+import { DEMO_MODE } from "../services/demoMode.js";
 import { ShieldAlert, ShieldCheck, ArrowRight, ArrowLeft } from "lucide-react";
 
 export default function AdminRoute() {
@@ -54,19 +55,21 @@ export default function AdminRoute() {
           </p>
 
           <div className="denied-actions">
-            <button
-              type="button"
-              className="button button-primary"
-              onClick={() => {
-                // Quick role elevation for testing/demo
-                const updated = { ...currentUser, role: "ADMIN" };
-                localStorage.setItem("researchnest_user", JSON.stringify(updated));
-                setCurrentUser(updated);
-              }}
-            >
-              <ShieldCheck size={16} />
-              <span>Grant Admin Role to This Session</span>
-            </button>
+            {DEMO_MODE && (
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => {
+                  // Developer-only role elevation (requires VITE_ENABLE_DEMO_LOGIN=true)
+                  const updated = { ...currentUser, role: "ADMIN" };
+                  localStorage.setItem("researchnest_user", JSON.stringify(updated));
+                  setCurrentUser(updated);
+                }}
+              >
+                <ShieldCheck size={16} />
+                <span>Grant Admin Role to This Session</span>
+              </button>
+            )}
             <Link to="/workspace" className="button button-secondary">
               <ArrowLeft size={16} />
               <span>Return to Workspace</span>

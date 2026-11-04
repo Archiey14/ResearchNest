@@ -24,10 +24,18 @@ public class GoogleTokenVerifierServiceImpl implements GoogleTokenVerifierServic
 
     private final String googleClientId;
     private final GoogleIdTokenVerifier verifier;
+    private final boolean devMode;
+
+    /** Production-safe default: developer/mock Google tokens are NOT accepted. */
+    public GoogleTokenVerifierServiceImpl(String googleClientId) {
+        this(googleClientId, false);
+    }
 
     @Autowired
     public GoogleTokenVerifierServiceImpl(
-            @Value("${google.client-id:}") String googleClientId) {
+            @Value("${google.client-id:}") String googleClientId,
+            @Value("${app.dev-mode:false}") boolean devMode) {
+        this.devMode = devMode;
         this.googleClientId = (googleClientId != null) ? googleClientId.trim() : "";
         
         GoogleIdTokenVerifier.Builder builder = new GoogleIdTokenVerifier.Builder(
@@ -55,6 +63,7 @@ public class GoogleTokenVerifierServiceImpl implements GoogleTokenVerifierServic
     public GoogleTokenVerifierServiceImpl(String googleClientId, GoogleIdTokenVerifier verifier) {
         this.googleClientId = (googleClientId != null) ? googleClientId.trim() : "";
         this.verifier = verifier;
+        this.devMode = false;
     }
 
     @Override
@@ -65,8 +74,8 @@ public class GoogleTokenVerifierServiceImpl implements GoogleTokenVerifierServic
 
         String cleanToken = idTokenString.trim();
 
-        // 1. Instant Development / Demo / Test Google Token Simulation
-        if (cleanToken.startsWith("dev_google_") || cleanToken.startsWith("mock_google_") || cleanToken.startsWith("simulated_google_")) {
+        // 1. Development-only Google token simulation (requires app.dev-mode=true; never accepted otherwise)
+        if (devMode && (cleanToken.startsWith("dev_google_") || cleanToken.startsWith("mock_google_") || cleanToken.startsWith("simulated_google_"))) {
             return processDevGoogleToken(cleanToken);
         }
 

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { authService } from "../services/authService.js";
+import { DEMO_MODE } from "../services/demoMode.js";
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
@@ -190,6 +191,13 @@ export default function AuthPage() {
   // Fallback click handler: if client ID configured, triggers prompt; otherwise opens quick access modal
   function handleGoogleFallbackClick() {
     if (!googleClientId) {
+      if (!DEMO_MODE) {
+        setNotice({
+          type: "error",
+          text: "Google Sign-In is not configured for this environment.",
+        });
+        return;
+      }
       setGoogleModalTab("quick");
       setShowGoogleModal(true);
       return;
@@ -199,15 +207,28 @@ export default function AuthPage() {
       try {
         window.google.accounts.id.prompt();
       } catch (err) {
-        setShowGoogleModal(true);
+        if (DEMO_MODE) setShowGoogleModal(true);
       }
-    } else {
+    } else if (DEMO_MODE) {
       setShowGoogleModal(true);
+    } else {
+      setNotice({
+        type: "error",
+        text: "Google Sign-In could not be loaded. Please check your connection and try again.",
+      });
     }
   }
 
   // 1-Click Instant Google Sign-In for instant access
   async function handleQuickGoogleSignIn(customEmail, customName) {
+    if (!DEMO_MODE) {
+      setShowGoogleModal(false);
+      setNotice({
+        type: "error",
+        text: "Quick sign-in is only available in developer demo mode.",
+      });
+      return;
+    }
     setIsSubmitting(true);
     setNotice(null);
     try {
@@ -720,7 +741,7 @@ export default function AuthPage() {
                 <p className="auth-card-subtitle">
                   We sent a 6-digit verification code to <strong>{twoFactorEmail}</strong>. Please enter it below to complete sign in.
                 </p>
-                {(twoFactorEmail?.toLowerCase() === "admin@researchnest.org" ||
+                {DEMO_MODE && (twoFactorEmail?.toLowerCase() === "admin@researchnest.org" ||
                   twoFactorEmail?.toLowerCase() === "alex.chen@stanford.edu" ||
                   twoFactorEmail?.toLowerCase().endsWith("@researchnest.org")) && (
                   <div

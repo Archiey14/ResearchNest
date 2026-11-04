@@ -680,13 +680,17 @@ React Client (:5173)         Spring Boot (:8081)             Python AI (:8000)
 </html>
 """
 
-html_path = "/Users/Windows/Desktop/researchnest/ResearchNest_AI_Engine_Architecture.html"
-pdf_path = "/Users/Windows/Desktop/researchnest/ResearchNest_AI_Engine_Architecture.pdf"
+base_dir = os.path.dirname(os.path.abspath(__file__))
+html_path = os.path.join(base_dir, "ResearchNest_AI_Engine_Architecture.html")
+pdf_path = os.path.join(base_dir, "ResearchNest_AI_Engine_Architecture.pdf")
 
 with open(html_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
-chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# Path to Chrome/Chromium; override with the CHROME_PATH environment variable on other systems.
+chrome_path = os.environ.get(
+    "CHROME_PATH", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+)
 cmd = [
     chrome_path,
     "--headless",

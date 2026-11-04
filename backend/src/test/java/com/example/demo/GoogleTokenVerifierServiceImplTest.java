@@ -15,7 +15,7 @@ class GoogleTokenVerifierServiceImplTest {
     @Test
     @DisplayName("Dev Google token resolves to valid default GoogleUserInfo")
     void testDevGoogleTokenDefault() {
-        GoogleTokenVerifierServiceImpl service = new GoogleTokenVerifierServiceImpl("");
+        GoogleTokenVerifierServiceImpl service = new GoogleTokenVerifierServiceImpl("", true);
         GoogleUserInfo info = service.verifyToken("dev_google_token");
 
         assertNotNull(info);
@@ -28,7 +28,7 @@ class GoogleTokenVerifierServiceImplTest {
     @Test
     @DisplayName("Dev Google token with Base64 payload extracts custom claims")
     void testDevGoogleTokenWithCustomPayload() {
-        GoogleTokenVerifierServiceImpl service = new GoogleTokenVerifierServiceImpl("");
+        GoogleTokenVerifierServiceImpl service = new GoogleTokenVerifierServiceImpl("", true);
         String json = "{\"sub\":\"gid_custom_777\",\"email\":\"custom.scholar@mit.edu\",\"name\":\"Prof. Claude Shannon\",\"email_verified\":true}";
         String b64 = Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
         String token = "dev_google_token:" + b64;
@@ -40,6 +40,15 @@ class GoogleTokenVerifierServiceImplTest {
         assertEquals("custom.scholar@mit.edu", info.getEmail());
         assertEquals("Prof. Claude Shannon", info.getName());
         assertTrue(info.isEmailVerified());
+    }
+
+    @Test
+    @DisplayName("Dev Google tokens are rejected when developer mode is off (default)")
+    void testDevGoogleTokenRejectedWhenDevModeOff() {
+        GoogleTokenVerifierServiceImpl service = new GoogleTokenVerifierServiceImpl("");
+        assertThrows(RuntimeException.class, () -> service.verifyToken("dev_google_token"));
+        assertThrows(RuntimeException.class, () -> service.verifyToken("mock_google_token"));
+        assertThrows(RuntimeException.class, () -> service.verifyToken("simulated_google_token"));
     }
 
     @Test
