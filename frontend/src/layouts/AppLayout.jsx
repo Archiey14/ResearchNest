@@ -28,6 +28,7 @@ import { mockStacks } from "../data/mockPapers.js";
 import { authService } from "../services/authService.js";
 import { getSavedCount } from "../services/savedPapersStore.js";
 import NestAIChatbot from "../components/NestAIChatbot.jsx";
+import "../styles/global.css";
 
 const notificationsList = [
   {
@@ -73,6 +74,20 @@ export default function AppLayout() {
 
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+
+  // Lets other components (e.g. the NestAI chatbot) open the New Stack modal,
+  // optionally with a pre-filled name: dispatchEvent(new CustomEvent("researchnest:open-new-stack", { detail: { name } }))
+  useEffect(() => {
+    function openNewStack(e) {
+      const name = e?.detail?.name;
+      if (typeof name === "string" && name.trim()) setNewStackName(name.trim());
+      setShowNotifications(false);
+      setShowProfileMenu(false);
+      setShowNewStackModal(true);
+    }
+    window.addEventListener("researchnest:open-new-stack", openNewStack);
+    return () => window.removeEventListener("researchnest:open-new-stack", openNewStack);
+  }, []);
 
   const [theme, setTheme] = useState(() => {
     if (typeof window !== "undefined") {
@@ -164,11 +179,11 @@ export default function AppLayout() {
 
   const initials = currentUser?.name
     ? currentUser.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2)
     : "AC";
 
   const isAdmin = currentUser?.role?.toUpperCase() === "ADMIN";
@@ -184,228 +199,293 @@ export default function AppLayout() {
     <div className="workspace-ambient-shell">
       {/* Elevated Floating Canvas inspired by SaaSrooms & GATHER */}
       <div className="workspace-canvas-frame">
-        {/* Top Floating Navigation Bar */}
-        <header className="workspace-top-bar" aria-label="Workspace top bar">
-          <div className="workspace-bar-left">
-            <Link to="/workspace" className="workspace-brand-link" aria-label="ResearchNest Workspace">
-              <span className="workspace-brand-logo" aria-hidden="true">
-                <BookOpen size={20} strokeWidth={2.4} />
-              </span>
-              <span className="workspace-brand-text">ResearchNest</span>
-            </Link>
+        {/* Left sidebar navigation (desktop) */}
+        <aside className="workspace-sidebar" aria-label="Primary navigation">
+          <Link to="/workspace" className="sidebar-brand" aria-label="ResearchNest Workspace">
+            <span className="sidebar-brand-logo" aria-hidden="true">
+              <BookOpen size={20} strokeWidth={2.4} />
+            </span>
+            <span className="sidebar-brand-text">ResearchNest</span>
+          </Link>
 
-            {/* Pill Navigation Tabs */}
-            <nav className="workspace-pill-nav" aria-label="Workspace navigation">
-              {navTabs.map(({ label, to, badge }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={to === "/workspace"}
-                  className={({ isActive }) =>
-                    `workspace-nav-pill ${isActive ? "workspace-nav-pill-active" : ""}`
-                  }
-                >
-                  <span>{label}</span>
-                  {badge && <span className="workspace-pill-count">{badge}</span>}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
+          <nav className="sidebar-nav" aria-label="Workspace navigation">
+            {navTabs.map(({ label, to, icon: Icon, badge }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === "/workspace"}
+                className={({ isActive }) =>
+                  `sidebar-link ${isActive ? "sidebar-link-active" : ""}`
+                }
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{label}</span>
+                {badge && <span className="sidebar-link-badge">{badge}</span>}
+              </NavLink>
+            ))}
+          </nav>
 
-          {/* Conversational Search Pill matching Reference */}
-          <form
-            className="workspace-quick-search-form"
-            onSubmit={handleSearchSubmit}
-            role="search"
-          >
-            <Sparkles size={15} className="quick-search-icon" aria-hidden="true" />
-            <input
-              type="search"
-              className="quick-search-input"
-              placeholder="Ask anything or search papers..."
-              value={quickSearch}
-              onChange={(e) => setQuickSearch(e.target.value)}
-              aria-label="Ask or search research"
-            />
-            <button type="submit" className="quick-search-send-btn" aria-label="Explore search">
-              <span>Send</span>
-              <ArrowUpRight size={14} aria-hidden="true" />
-            </button>
-          </form>
-
-          {/* Right Action Tools */}
-          <div className="workspace-bar-right">
+          <div className="sidebar-promo">
+            <span className="sidebar-promo-icon" aria-hidden="true">
+              <Layers size={20} />
+            </span>
+            <p className="sidebar-promo-title">Organise your reading</p>
+            <p className="sidebar-promo-text">
+              Group papers by topic into research stacks.
+            </p>
             <button
               type="button"
-              className="workspace-action-btn"
+              className="sidebar-promo-btn"
               onClick={() => setShowNewStackModal(true)}
-              title="Create a new research stack"
             >
-              <Plus size={15} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               <span>New Stack</span>
             </button>
+          </div>
 
-            {/* Notifications Popover */}
-            <div className="popover-wrapper" ref={notifRef}>
+          <button type="button" className="sidebar-logout" onClick={handleSignOut}>
+            <LogOut size={17} aria-hidden="true" />
+            <span>Log Out</span>
+          </button>
+        </aside>
+
+        <div className="workspace-main-col">
+          {/* Top Floating Navigation Bar */}
+          <header className="workspace-top-bar" aria-label="Workspace top bar">
+            <div className="workspace-bar-left">
+              <Link to="/workspace" className="workspace-brand-link" aria-label="ResearchNest Workspace">
+                <span className="workspace-brand-logo" aria-hidden="true">
+                  <BookOpen size={20} strokeWidth={2.4} />
+                </span>
+                <span className="workspace-brand-text">ResearchNest</span>
+              </Link>
+
+              {/* Pill Navigation Tabs */}
+              <nav className="workspace-pill-nav" aria-label="Workspace navigation">
+                {navTabs.map(({ label, to, badge }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === "/workspace"}
+                    className={({ isActive }) =>
+                      `workspace-nav-pill ${isActive ? "workspace-nav-pill-active" : ""}`
+                    }
+                  >
+                    <span>{label}</span>
+                    {badge && <span className="workspace-pill-count">{badge}</span>}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+
+            {/* Conversational Search Pill matching Reference */}
+            <form
+              className="workspace-quick-search-form"
+              onSubmit={handleSearchSubmit}
+              role="search"
+            >
+              <Sparkles size={15} className="quick-search-icon" aria-hidden="true" />
+              <input
+                type="search"
+                className="quick-search-input"
+                placeholder="Ask anything or search papers..."
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                aria-label="Ask or search research"
+              />
+              <button type="submit" className="quick-search-send-btn" aria-label="Explore search">
+                <span>Send</span>
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </button>
+            </form>
+
+            {/* Right Action Tools */}
+            <div className="workspace-bar-right">
               <button
                 type="button"
-                className={`workspace-icon-button ${showNotifications ? "icon-btn-active" : ""}`}
-                onClick={() => {
-                  setShowNotifications((prev) => !prev);
-                  setShowProfileMenu(false);
-                }}
-                title="Notifications"
-                aria-label="3 notifications"
+                className="workspace-action-btn"
+                onClick={() => setShowNewStackModal(true)}
+                title="Create a new research stack"
               >
-                <Bell size={17} aria-hidden="true" />
-                <span className="workspace-notif-dot">3</span>
+                <Plus size={15} aria-hidden="true" />
+                <span>New Stack</span>
               </button>
 
-              {showNotifications && (
-                <div className="dropdown-popover notif-popover">
-                  <div className="popover-head">
-                    <h4>Notifications</h4>
-                    <span className="notif-badge-pill">3 new</span>
-                  </div>
-                  <div className="notif-list">
-                    {notificationsList.map((n) => (
-                      <div key={n.id} className={`notif-item ${n.unread ? "notif-unread" : ""}`}>
-                        <div className="notif-title-row">
-                          <span className="notif-title">{n.title}</span>
-                          <span className="notif-time">{n.time}</span>
+              {/* Notifications Popover */}
+              <div className="popover-wrapper" ref={notifRef}>
+                <button
+                  type="button"
+                  className={`workspace-icon-button ${showNotifications ? "icon-btn-active" : ""}`}
+                  onClick={() => {
+                    setShowNotifications((prev) => !prev);
+                    setShowProfileMenu(false);
+                  }}
+                  title="Notifications"
+                  aria-label="3 notifications"
+                >
+                  <Bell size={17} aria-hidden="true" />
+                  <span className="workspace-notif-dot">3</span>
+                </button>
+
+                {showNotifications && (
+                  <div className="dropdown-popover notif-popover">
+                    <div className="popover-head">
+                      <h4>Notifications</h4>
+                      <span className="notif-badge-pill">3 new</span>
+                    </div>
+                    <div className="notif-list">
+                      {notificationsList.map((n) => (
+                        <div key={n.id} className={`notif-item ${n.unread ? "notif-unread" : ""}`}>
+                          <div className="notif-title-row">
+                            <span className="notif-title">{n.title}</span>
+                            <span className="notif-time">{n.time}</span>
+                          </div>
+                          <p className="notif-desc">{n.desc}</p>
                         </div>
-                        <p className="notif-desc">{n.desc}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div className="popover-footer">
+                      <button
+                        type="button"
+                        className="popover-action-link"
+                        onClick={() => setShowNotifications(false)}
+                      >
+                        Mark all as read
+                      </button>
+                    </div>
                   </div>
-                  <div className="popover-footer">
-                    <button
-                      type="button"
-                      className="popover-action-link"
-                      onClick={() => setShowNotifications(false)}
-                    >
-                      Mark all as read
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Theme Toggle */}
-            <button
-              type="button"
-              className="workspace-icon-button theme-toggle-icon"
-              onClick={toggleTheme}
-              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-            >
-              {theme === "dark" ? (
-                <Sun size={17} aria-hidden="true" />
-              ) : (
-                <Moon size={17} aria-hidden="true" />
-              )}
-            </button>
-
-            {/* User Profile Pill & Dropdown */}
-            <div className="popover-wrapper" ref={profileRef}>
-              <div
-                className="workspace-profile-pill"
-                onClick={() => {
-                  setShowProfileMenu((prev) => !prev);
-                  setShowNotifications(false);
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <span className="profile-avatar" aria-hidden="true">
-                  {initials}
-                </span>
-                <span className="profile-name">{currentUser?.name || "Alex Chen"}</span>
-                <ChevronDown size={14} className="profile-chevron" aria-hidden="true" />
+                )}
               </div>
 
-              {showProfileMenu && (
-                <div className="dropdown-popover profile-popover">
-                  <div className="profile-popover-header">
-                    <span className="profile-avatar large-avatar">{initials}</span>
-                    <div className="profile-meta-text">
-                      <strong className="profile-full-name">{currentUser?.name || "Alex Chen"}</strong>
-                      <span className="profile-email">{currentUser?.email || "alex.chen@stanford.edu"}</span>
-                      <span className="profile-role">
-                        {currentUser?.department || "AI Lab"} · {currentUser?.institution || "Stanford University"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="profile-stats-strip">
-                    <div className="profile-stat-box">
-                      <span className="pstat-num">{savedCount}</span>
-                      <span className="pstat-lbl">Saved</span>
-                    </div>
-                    <div className="profile-stat-box">
-                      <span className="pstat-num">18</span>
-                      <span className="pstat-lbl">Reviewed</span>
-                    </div>
-                    <div className="profile-stat-box">
-                      <span className="pstat-num">5</span>
-                      <span className="pstat-lbl">Streak</span>
-                    </div>
-                  </div>
-                  <div className="popover-links-list">
-                    <Link
-                      to="/workspace/saved"
-                      className="popover-menu-item"
-                      onClick={() => setShowProfileMenu(false)}
-                    >
-                      <BookOpen size={15} />
-                      <span>My Collections</span>
-                    </Link>
-                    <Link
-                      to="/workspace/discover"
-                      className="popover-menu-item"
-                      onClick={() => setShowProfileMenu(false)}
-                    >
-                      <Compass size={15} />
-                      <span>Literature Explorer</span>
-                    </Link>
-                    <Link
-                      to="/admin"
-                      className="popover-menu-item"
-                      onClick={() => setShowProfileMenu(false)}
-                    >
-                      <Shield size={15} style={{ color: "var(--color-accent)" }} />
-                      <span>Admin Console</span>
-                    </Link>
-                  </div>
-                  <div className="popover-footer">
-                    <button
-                      type="button"
-                      className="profile-logout-btn"
-                      onClick={handleSignOut}
-                    >
-                      <LogOut size={14} />
-                      <span>Sign Out</span>
-                    </button>
-                  </div>
+              {/* Theme Toggle */}
+              <button
+                type="button"
+                className="workspace-icon-button theme-toggle-icon"
+                onClick={toggleTheme}
+                title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              >
+                {theme === "dark" ? (
+                  <Sun size={17} aria-hidden="true" />
+                ) : (
+                  <Moon size={17} aria-hidden="true" />
+                )}
+              </button>
+
+              {/* User Profile Pill & Dropdown */}
+              <div className="popover-wrapper" ref={profileRef}>
+                <div
+                  className="workspace-profile-pill"
+                  onClick={() => {
+                    setShowProfileMenu((prev) => !prev);
+                    setShowNotifications(false);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <span className="profile-avatar" aria-hidden="true">
+                    {initials}
+                  </span>
+                  <span className="profile-name">{currentUser?.name || "Alex Chen"}</span>
+                  <ChevronDown size={14} className="profile-chevron" aria-hidden="true" />
                 </div>
-              )}
+
+                {showProfileMenu && (
+                  <div className="dropdown-popover profile-popover">
+                    <div className="profile-popover-header">
+                      <span className="profile-avatar large-avatar">{initials}</span>
+                      <div className="profile-meta-text">
+                        <strong className="profile-full-name">{currentUser?.name || "Alex Chen"}</strong>
+                        <span className="profile-email">{currentUser?.email || "alex.chen@stanford.edu"}</span>
+                        <span className="profile-role">
+                          {currentUser?.department || "AI Lab"} · {currentUser?.institution || "Stanford University"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="profile-stats-strip">
+                      <div className="profile-stat-box">
+                        <span className="pstat-num">{savedCount}</span>
+                        <span className="pstat-lbl">Saved</span>
+                      </div>
+                      <div className="profile-stat-box">
+                        <span className="pstat-num">18</span>
+                        <span className="pstat-lbl">Reviewed</span>
+                      </div>
+                      <div className="profile-stat-box">
+                        <span className="pstat-num">5</span>
+                        <span className="pstat-lbl">Streak</span>
+                      </div>
+                    </div>
+                    <div className="popover-links-list">
+                      <Link
+                        to="/workspace/saved"
+                        className="popover-menu-item"
+                        onClick={() => setShowProfileMenu(false)}
+                      >
+                        <BookOpen size={15} />
+                        <span>My Collections</span>
+                      </Link>
+                      <Link
+                        to="/workspace/discover"
+                        className="popover-menu-item"
+                        onClick={() => setShowProfileMenu(false)}
+                      >
+                        <Compass size={15} />
+                        <span>Literature Explorer</span>
+                      </Link>
+                      <Link
+                        to="/admin"
+                        className="popover-menu-item"
+                        onClick={() => setShowProfileMenu(false)}
+                      >
+                        <Shield size={15} style={{ color: "var(--color-accent)" }} />
+                        <span>Admin Console</span>
+                      </Link>
+                    </div>
+                    <div className="popover-footer">
+                      <button
+                        type="button"
+                        className="profile-logout-btn"
+                        onClick={handleSignOut}
+                      >
+                        <LogOut size={14} />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Back to Public Site Link */}
+              <Link
+                to="/"
+                className="workspace-exit-btn"
+                title="Exit to ResearchNest home"
+                aria-label="Exit workspace to website"
+              >
+                <LogOut size={16} aria-hidden="true" />
+              </Link>
             </div>
+          </header>
 
-            {/* Back to Public Site Link */}
-            <Link
-              to="/"
-              className="workspace-exit-btn"
-              title="Exit to ResearchNest home"
-              aria-label="Exit workspace to website"
-            >
-              <LogOut size={16} aria-hidden="true" />
-            </Link>
-          </div>
-        </header>
+          {/* Inner Canvas Content */}
+          <main className="workspace-canvas-content">
+            <Outlet />
+          </main>
 
-        {/* Inner Canvas Content */}
-        <main className="workspace-canvas-content">
-          <Outlet />
-        </main>
+          {/* Slim dashboard footer */}
+          <footer className="workspace-slim-footer" aria-label="Workspace footer">
+            <span className="workspace-slim-footer-copy">
+              © {new Date().getFullYear()} ResearchNest
+            </span>
+            <nav className="workspace-slim-footer-nav" aria-label="Legal and contact">
+              <Link to="/privacy">Privacy</Link>
+              <Link to="/terms">Terms</Link>
+              <Link to="/security">Security</Link>
+              <Link to="/contact">Contact</Link>
+            </nav>
+          </footer>
+        </div>
       </div>
 
       {/* New Stack Modal */}

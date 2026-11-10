@@ -4,6 +4,7 @@ import {
   Bot,
   ExternalLink,
   MessageSquare,
+  Mic,
   Minus,
   RotateCcw,
   Send,
@@ -12,7 +13,12 @@ import {
   FileText,
   Bookmark
 } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { chatService } from "../services/chatService.js";
+import { parseNavigationIntent, parseChatAction } from "../services/chatNavigation.js";
+import { authService } from "../services/authService.js";
+import { addPaperToStackFromChat } from "../services/chatStackActions.js";
+import useVoiceCommand from "../hooks/useVoiceCommand.js";
 import PaperModal from "./PaperModal.jsx";
 import { isPaperSaved, toggleSavedPaper } from "../services/savedPapersStore.js";
 import "../styles/chatbot.css";
@@ -92,6 +98,8 @@ export default function NestAIChatbot() {
   const [isThinking, setIsThinking] = useState(false);
   const [selectedModalPaper, setSelectedModalPaper] = useState(null);
   const [modalInitialTab, setModalInitialTab] = useState("overview");
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const bodyRef = useRef(null);
   const inputRef = useRef(null);
@@ -123,6 +131,112 @@ export default function NestAIChatbot() {
     const newHistory = [...messages, userMessage];
     setMessages(newHistory);
     setInput("");
+
+    // In-app action: "create a new stack" / "make a stack called Quantum ML" opens the New Stack modal.
+    const action = parseChatAction(query);
+
+    // "add the Mamba paper to the recently created stack"
+    if (action?.type === "add-to-stack") {
+      setIsThinking(true);
+      try {
+        // Papers the chatbot already showed (newest first) so "add it to my stack" works.
+        const contextPapers = [...messages]
+          .reverse()
+          .flatMap((m) => (Array.isArray(m.relatedPapers) ? m.relatedPapers : []));
+        const result = await addPaperToStackFromChat({
+          paperQuery: action.paperQuery,
+          usesContext: action.usesContext,
+          stackRef: action.stackRef,
+          contextPapers,
+        });
+        setMessages([
+          ...newHistory,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: result.reply,
+            intent: "action",
+            suggestedQueries: result.suggestedQueries || [],
+            relatedPapers: [],
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      } catch (err) {
+        console.error("Add-to-stack error:", err);
+        setMessages([
+          ...newHistory,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: "Sorry, I couldn't add that paper to a stack. Please try again.",
+            intent: "action",
+            suggestedQueries: [],
+            relatedPapers: [],
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      } finally {
+        setIsThinking(false);
+      }
+      return;
+    }
+
+    if (action?.type === "open-new-stack") {
+      const actionMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: action.name
+          ? `Opening the **New Stack** form with the name **${action.name}**. Add a description and hit **Create Stack** when you're ready.`
+          : "Opening the **New Stack** form. Give it a name and a focus area, then hit **Create Stack**.",
+        intent: "action",
+        suggestedQueries: [],
+        relatedPapers: [],
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages([...newHistory, actionMessage]);
+      window.dispatchEvent(
+        new CustomEvent("researchnest:open-new-stack", { detail: { name: action.name || "" } })
+      );
+      return;
+    }
+    // In-app navigation: "take me to saved papers", "go to discover", "log me out", ...
+    const navIntent = parseNavigationIntent(query, {
+      isAuthenticated: authService.isAuthenticated(),
+    });
+    if (navIntent) {
+      const alreadyHere = !navIntent.action && pathname === navIntent.path;
+      let reply;
+      if (navIntent.action === "logout") {
+        reply = "Signing you out and taking you to the **Sign In** page...";
+      } else if (alreadyHere) {
+        reply = `You're already on the **${navIntent.label}** page.`;
+      } else {
+        reply = `Taking you to **${navIntent.label}**...`;
+      }
+
+      const navMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: reply,
+        intent: "navigation",
+        suggestedQueries: [],
+        relatedPapers: [],
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      const updated = [...newHistory, navMessage];
+      setMessages(updated);
+      // Persist now: leaving the workspace (e.g. to /login) unmounts the chatbot.
+      chatService.saveHistory(updated);
+
+      if (!alreadyHere) {
+        setTimeout(() => {
+          if (navIntent.action === "logout") authService.logout();
+          navigate(navIntent.path);
+        }, 600);
+      }
+      return;
+    }
+
     setIsThinking(true);
 
     try {
@@ -159,6 +273,59 @@ export default function NestAIChatbot() {
     chatService.clearHistory();
     setMessages([]);
   };
+
+  // ---- Voice input: words appear in the box live, message sends when you stop talking ----
+  const [voiceError, setVoiceError] = useState("");
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+
+  const {
+    restart: startVoice,
+    stop: stopVoice,
+    listening,
+    supported: voiceSupported,
+  } = useVoiceCommand(
+    (intent) => {
+      if (!intent.startsWith("error:")) return;
+      const reason = intent.replace(/^error:/, "");
+      if (reason === "not-allowed" || reason === "service-not-allowed") {
+        setVoiceError("Microphone access is blocked. Allow it in your browser's site settings.");
+      } else if (reason.includes("not supported")) {
+        setVoiceError("Voice input isn't supported in this browser. Try Chrome or Edge.");
+      } else {
+        setVoiceError(`Voice input error: ${reason}`);
+      }
+    },
+    {
+      interim: true,
+      onTranscript: (text, isFinal) => {
+        setInput(text);
+        if (isFinal && text) handleSendRef.current(text);
+      },
+    }
+  );
+
+  const handleToggleVoice = () => {
+    if (listening) {
+      stopVoice();
+      return;
+    }
+    setVoiceError("");
+    setInput("");
+    startVoice();
+  };
+
+  // Clear the voice error message after a few seconds
+  useEffect(() => {
+    if (!voiceError) return undefined;
+    const timer = setTimeout(() => setVoiceError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [voiceError]);
+
+  // Never keep the mic open while the chat is minimized
+  useEffect(() => {
+    if (!isOpen) stopVoice();
+  }, [isOpen, stopVoice]);
 
   const handleOpenPaperModal = (paper, tab = "overview") => {
     setModalInitialTab(tab);
@@ -346,6 +513,11 @@ export default function NestAIChatbot() {
 
           {/* Footer / Input */}
           <div className="nestai-footer">
+            {voiceError && (
+              <div className="nestai-voice-error" role="alert">
+                {voiceError}
+              </div>
+            )}
             <form
               className="nestai-input-form"
               onSubmit={(e) => {
@@ -358,11 +530,29 @@ export default function NestAIChatbot() {
                 id="nestai-chat-input"
                 type="text"
                 className="nestai-input"
-                placeholder="Ask about papers, algorithms, or features..."
+                placeholder={listening ? "Listening... speak now" : "Ask about papers, algorithms, or features..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isThinking}
               />
+              <button
+                type="button"
+                id="nestai-chat-mic-btn"
+                className={`nestai-mic-btn ${listening ? "nestai-mic-listening" : ""}`}
+                onClick={handleToggleVoice}
+                disabled={isThinking || !voiceSupported}
+                aria-label={listening ? "Stop voice input" : "Start voice input"}
+                aria-pressed={listening}
+                title={
+                  !voiceSupported
+                    ? "Voice input isn't supported in this browser"
+                    : listening
+                      ? "Stop listening"
+                      : "Speak your question"
+                }
+              >
+                <Mic size={16} />
+              </button>
               <button
                 type="submit"
                 id="nestai-chat-send-btn"

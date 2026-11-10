@@ -7,7 +7,9 @@
  * the navbar counter badge strictly matches the actual number of saved papers.
  */
 
-import { mockPapers } from "../data/mockPapers.js";
+import { mockPapers, mockStacks } from "../data/mockPapers.js";
+
+const USER_STACKS_KEY = "researchnest_user_stacks";
 
 const SAVED_IDS_KEY = "researchnest_saved_ids";
 const SAVED_POOL_KEY = "researchnest_saved_papers_pool";
@@ -213,4 +215,72 @@ export function toggleSavedPaper(paperOrId, catalogPapers = []) {
   );
 
   return nextIsSaving;
+}
+
+/**
+ * Stacks the user sees on the Saved Papers page: their own list from localStorage,
+ * or the built-in defaults if they have never created one. New stacks are appended,
+ * so the last item is the most recently created.
+ */
+export function getUserStacks() {
+  try {
+    const raw = localStorage.getItem(USER_STACKS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch (e) {
+    console.warn("Could not read user stacks:", e);
+  }
+  return mockStacks;
+}
+
+/** True once the user has created at least one stack of their own. */
+export function hasUserCreatedStacks() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(USER_STACKS_KEY) || "null");
+    return Array.isArray(parsed) && parsed.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Save a paper (if it isn't saved yet) and file it under a stack.
+ * Pass stackId = null to just save it without changing its stack.
+ * Stack membership is the paper's `stackId`, so this updates the saved-pool entry
+ * and notifies the navbar, Saved page and dashboard.
+ *
+ * @returns {{ ok: boolean, wasSaved: boolean, previousStackId?: string, paper?: object }}
+ */
+export function addPaperToStack(paperOrId, stackId, catalogPapers = []) {
+  const isObj = typeof paperOrId === "object" && paperOrId !== null;
+  const strId = String(isObj ? paperOrId.id : paperOrId);
+
+  const pool = getSavedPool();
+  const ids = getSavedIds();
+  const wasSaved = ids.includes(strId);
+  const existing = pool.find((p) => String(p.id) === strId);
+
+  const base =
+    existing ||
+    (isObj ? paperOrId : null) ||
+    (Array.isArray(catalogPapers) ? catalogPapers.find((p) => String(p.id) === strId) : null) ||
+    mockPapers.find((p) => String(p.id) === strId);
+  if (!base) return { ok: false, wasSaved };
+
+  const updated = stackId ? { ...base, stackId } : { ...base };
+  const nextPool = existing
+    ? pool.map((p) => (String(p.id) === strId ? updated : p))
+    : [...pool, updated];
+  const nextIds = Array.from(new Set([...ids, strId]));
+
+  localStorage.setItem(SAVED_IDS_KEY, JSON.stringify(nextIds));
+  localStorage.setItem(SAVED_POOL_KEY, JSON.stringify(nextPool));
+
+  window.dispatchEvent(
+    new CustomEvent("researchnest:saved_updated", {
+      detail: { id: strId, isSaving: true, count: nextIds.length, paper: updated },
+    })
+  );
+
+  return { ok: true, wasSaved, previousStackId: existing?.stackId, paper: updated };
 }

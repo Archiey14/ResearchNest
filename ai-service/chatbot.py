@@ -67,11 +67,11 @@ class NestAIChatbot:
         q = query.lower()
 
         # Check for platform / website feature questions
-        if any(w in q for w in ["how does", "how to", "algorithm", "recommendation", "rocchio", "hybrid", "model work", "reading time", "active learning", "stacks", "save paper", "openalex", "harvest", "what is researchnest", "citation", "bibtex"]):
+        if any(w in q for w in ["how does", "how to", "how do i", "how can i", "algorithm", "recommendation", "rocchio", "hybrid", "model work", "reading time", "active learning", "stack", "save paper", "save a paper", "workspace", "bookmark", "openalex", "harvest", "what is researchnest", "citation", "bibtex"]):
             return "platform_help"
 
         # Check for recommendations / search intent
-        if any(w in q for w in ["recommend", "suggest", "find me", "show me", "papers about", "papers on", "literature on", "search for"]):
+        if any(w in q for w in ["recommend", "suggest", "find me", "show me", "papers about", "papers on", "related papers", "literature on", "search for"]):
             return "recommendation_search"
 
         # Check for specific paper / scientific questions
@@ -94,6 +94,21 @@ class NestAIChatbot:
             flags=re.IGNORECASE
         ).strip()
         search_text = f"{clean_q} {query}" if clean_q else query
+
+        # Expand common shorthand so "suggest ML papers" matches "machine learning" in the index
+        synonyms = {
+            "ml": "machine learning",
+            "nlp": "natural language processing",
+            "cv": "computer vision",
+            "llm": "large language model",
+            "llms": "large language models",
+            "dl": "deep learning",
+            "rl": "reinforcement learning",
+            "ai": "artificial intelligence",
+        }
+        extra = [synonyms[w] for w in re.findall(r"[a-z]+", query.lower()) if w in synonyms]
+        if extra:
+            search_text = f"{search_text} {' '.join(extra)}"
 
         try:
             query_vec = vectorizer.transform([search_text])
@@ -173,8 +188,8 @@ class NestAIChatbot:
                     "How do I save papers to my stack?"
                 ]
 
-            # Also check if query mentions a specific domain/paper
-            matched_papers = self._retrieve_relevant_papers(query, top_k=2)
+            # Also check if query mentions a specific domain/paper (skip for pure how-to answers)
+            matched_papers = [] if any(w in q_lower for w in ["stack", "save", "workspace", "bookmark", "collection"]) else self._retrieve_relevant_papers(query, top_k=2)
             return {
                 "reply": reply,
                 "intent": "platform_help",

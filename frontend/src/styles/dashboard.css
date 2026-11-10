@@ -1,0 +1,1372 @@
+/* ==========================================================================
+   ResearchNest - Dashboard Layout Layer
+   Turns the old "floating rounded card" workspace into a real full-width
+   dashboard: edge-to-edge app shell, sticky app bar, one joined KPI strip,
+   flat bordered panels with divided headers.
+
+   UI ONLY - no markup, logic or data changes.
+   Loaded after global.css and BEFORE responsive.css (see main.jsx), so the
+   responsive layer still has the last word on small screens.
+   Selectors are prefixed with `.workspace-ambient-shell` so they win over
+   the single-class rules in global.css without using !important.
+   ========================================================================== */
+
+:root {
+  --dash-bg: #f3f4f9;
+  --dash-panel: #ffffff;
+  --dash-panel-soft: #f8f8fc;
+  --dash-line: #e3e5ef;
+  --dash-radius: 12px;
+  --dash-gap: 16px;
+}
+
+[data-theme="dark"] {
+  --dash-bg: #0a0b16;
+  --dash-panel: #121325;
+  --dash-panel-soft: #171830;
+  --dash-line: rgba(255, 255, 255, 0.08);
+}
+
+/* ---------- 1. App shell: edge-to-edge instead of a floating card ---------- */
+div.workspace-ambient-shell {
+  background: var(--dash-bg);
+  padding: 0;
+  align-items: stretch;
+}
+
+.workspace-ambient-shell .workspace-canvas-frame {
+  max-width: none;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible; /* lets the app bar stay sticky against the viewport */
+}
+
+.workspace-ambient-shell .workspace-canvas-content {
+  overflow: visible;
+}
+
+/* ---------- 2. Sticky app bar ---------- */
+.workspace-ambient-shell .workspace-top-bar {
+  height: 64px;
+  background: var(--dash-panel);
+  border-bottom: 1px solid var(--dash-line);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+
+/* ---------- 3. Page body ---------- */
+.workspace-ambient-shell .natural-dashboard {
+  max-width: 1680px;
+  padding: 24px clamp(16px, 2.4vw, 36px) 56px;
+}
+
+/* Compact greeting - a page header, not a hero */
+.workspace-ambient-shell .dashboard-greeting-banner {
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--dash-line);
+}
+
+.workspace-ambient-shell .greeting-headline {
+  font-size: clamp(1.55rem, 2.1vw, 1.95rem);
+  margin-bottom: 4px;
+}
+
+.workspace-ambient-shell .greeting-subtext {
+  font-size: 0.9rem;
+}
+
+/* ---------- 4. KPI strip: ONE joined panel, not six floating cards ---------- */
+.workspace-ambient-shell .kpi-metrics-ribbon {
+  gap: 1px; /* the gap shows the panel background as divider lines */
+  background: var(--dash-line);
+  border: 1px solid var(--dash-line);
+  border-radius: var(--dash-radius);
+  overflow: hidden;
+  margin-bottom: var(--dash-gap);
+}
+
+.workspace-ambient-shell .kpi-metric-card {
+  background: var(--dash-panel);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 18px;
+}
+
+.workspace-ambient-shell .kpi-metric-card:hover {
+  transform: none;
+  box-shadow: none;
+  background: var(--dash-panel-soft);
+}
+
+/* ---------- 5. Panels: flat, bordered, with a divided header ---------- */
+.workspace-ambient-shell .chart-card,
+.workspace-ambient-shell .utility-widget {
+  background: var(--dash-panel);
+  border: 1px solid var(--dash-line);
+  border-radius: var(--dash-radius);
+  box-shadow: none;
+}
+
+.workspace-ambient-shell .analytics-trio-row {
+  gap: var(--dash-gap);
+  margin-bottom: var(--dash-gap);
+}
+
+.workspace-ambient-shell .chart-card {
+  padding: 0 20px 20px;
+}
+
+.workspace-ambient-shell .chart-card-header {
+  margin: 0 -20px 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--dash-line);
+  align-items: center;
+}
+
+.workspace-ambient-shell .chart-card-title {
+  font-size: 0.95rem;
+}
+
+.workspace-ambient-shell .dashboard-content-split {
+  gap: var(--dash-gap);
+}
+
+.workspace-ambient-shell .feed-utility-column {
+  gap: var(--dash-gap);
+}
+
+/* ---------- 6. Paper cards: denser, flatter ---------- */
+.workspace-ambient-shell .curated-papers-grid {
+  gap: var(--dash-gap);
+}
+
+.workspace-ambient-shell .refined-paper-card {
+  background: var(--dash-panel);
+  border: 1px solid var(--dash-line);
+  border-radius: var(--dash-radius);
+  box-shadow: none;
+}
+
+.workspace-ambient-shell .refined-paper-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--color-accent);
+}
+
+/* ---------- 6b. Motion: hover magnify + entrance animations ---------- */
+@keyframes rn-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Paper cards: smooth lift + slight magnify on hover (mouse devices only) */
+.workspace-ambient-shell .refined-paper-card {
+  position: relative;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms ease,
+    border-color 200ms ease;
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace-ambient-shell .refined-paper-card:hover {
+    transform: translateY(-4px) scale(1.025);
+    box-shadow:
+      0 18px 40px -12px rgba(99, 102, 241, 0.28),
+      0 6px 14px -6px rgba(15, 23, 42, 0.12);
+    border-color: var(--color-accent);
+    z-index: 5;
+  }
+
+  .workspace-ambient-shell .refined-paper-card:active {
+    transform: translateY(-2px) scale(1.01);
+  }
+}
+
+/* Entrance: cards, KPI strip and panels fade up (backwards fill so it never
+   fights the hover transform once finished) */
+.workspace-ambient-shell .refined-paper-card {
+  animation: rn-fade-up 460ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.workspace-ambient-shell .curated-papers-grid > :nth-child(2) { animation-delay: 60ms; }
+.workspace-ambient-shell .curated-papers-grid > :nth-child(3) { animation-delay: 120ms; }
+.workspace-ambient-shell .curated-papers-grid > :nth-child(4) { animation-delay: 180ms; }
+.workspace-ambient-shell .curated-papers-grid > :nth-child(5) { animation-delay: 240ms; }
+.workspace-ambient-shell .curated-papers-grid > :nth-child(6) { animation-delay: 300ms; }
+.workspace-ambient-shell .curated-papers-grid > :nth-child(n + 7) { animation-delay: 340ms; }
+
+.workspace-ambient-shell .kpi-metrics-ribbon,
+.workspace-ambient-shell .analytics-trio-row,
+.workspace-ambient-shell .feed-utility-column {
+  animation: rn-fade-up 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.workspace-ambient-shell .analytics-trio-row { animation-delay: 80ms; }
+.workspace-ambient-shell .feed-utility-column { animation-delay: 160ms; }
+
+/* Small interactions */
+.workspace-ambient-shell .kpi-metric-card,
+.workspace-ambient-shell .queue-item-row,
+.workspace-ambient-shell .activity-item-card {
+  transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace-ambient-shell .queue-item-row:hover,
+  .workspace-ambient-shell .activity-item-card:hover {
+    transform: translateX(3px);
+  }
+
+  .workspace-ambient-shell .card-footer-metrics button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.22);
+  }
+}
+
+.workspace-ambient-shell .card-bookmark-btn:active {
+  transform: scale(0.85);
+}
+
+.workspace-ambient-shell .card-read-link svg {
+  transition: transform 200ms ease;
+}
+
+.workspace-ambient-shell .refined-paper-card:hover .card-read-link svg {
+  transform: translateX(4px);
+}
+
+/* Footer: "Read PDF" must never wrap onto two lines */
+.workspace-ambient-shell .card-footer-metrics {
+  flex-wrap: wrap;
+}
+
+.workspace-ambient-shell .card-footer-metrics button {
+  white-space: nowrap;
+}
+
+/* ---------- 6c. Declutter: show less at a glance ---------- */
+
+/* Greeting: the tech-stack tags (Spring Boot / OpenAlex) are not user-facing info */
+.workspace-ambient-shell .greeting-meta-row {
+  display: none;
+}
+
+/* Paper cards: title, short author line, 2-line abstract, one quiet AI hint, slim footer */
+.workspace-ambient-shell .refined-paper-card {
+  gap: 0;
+}
+
+.workspace-ambient-shell .card-top-row {
+  margin-bottom: 14px;
+}
+
+.workspace-ambient-shell .card-paper-title {
+  font-size: 1.08rem;
+  line-height: 1.35;
+  margin: 0 0 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Authors + venue + year on ONE line */
+.workspace-ambient-shell .card-paper-authors {
+  margin: 0 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* AI reason: a small soft tag with the FULL sentence (wraps, never cut off with "...") */
+.workspace-ambient-shell .card-ai-reason {
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--color-accent-soft);
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.workspace-ambient-shell .card-ai-reason .ai-reason-icon {
+  margin-top: 2px;
+}
+
+.workspace-ambient-shell .card-ai-reason span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Abstract: 2 lines instead of 3, with room to breathe */
+.workspace-ambient-shell .card-paper-abstract {
+  -webkit-line-clamp: 2;
+  line-height: 1.55;
+  margin: 0 0 16px;
+}
+
+/* Topic tag is secondary detail - lives in the paper modal */
+.workspace-ambient-shell .card-tag-wrapper {
+  display: none;
+}
+
+/* "Details" duplicates the whole-card click */
+.workspace-ambient-shell .card-read-link {
+  display: none;
+}
+
+/* Footer: citations + Open Access on one row, one clear action */
+.workspace-ambient-shell .card-footer-metrics {
+  padding-top: 14px;
+  flex-wrap: nowrap;
+}
+
+.workspace-ambient-shell .card-metrics-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+/* "Not interested" only appears when you hover the card (always visible on touch) */
+.workspace-ambient-shell .card-dismiss-btn {
+  opacity: 0;
+  transition: opacity 180ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.workspace-ambient-shell .refined-paper-card:hover .card-dismiss-btn,
+.workspace-ambient-shell .refined-paper-card:focus-within .card-dismiss-btn {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .workspace-ambient-shell .card-dismiss-btn {
+    opacity: 1;
+  }
+}
+
+/* ---------- 7. Wide screens: use the room ---------- */
+@media (min-width: 1500px) {
+  .workspace-ambient-shell .dashboard-content-split {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
+
+/* ---------- 7b. Slim footer (replaces the big landing-page footer) ---------- */
+.workspace-ambient-shell .workspace-slim-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 14px clamp(16px, 2.4vw, 36px);
+  border-top: 1px solid var(--dash-line);
+  background: var(--dash-panel);
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.workspace-ambient-shell .workspace-slim-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.workspace-ambient-shell .workspace-slim-footer-nav a {
+  color: var(--color-muted);
+  text-decoration: none;
+  font-weight: 550;
+}
+
+.workspace-ambient-shell .workspace-slim-footer-nav a:hover {
+  color: var(--color-accent);
+}
+
+@media (max-width: 640px) {
+  .workspace-ambient-shell .workspace-slim-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ---------- 7c. Enhancement pass: KPI cards, panels, controls ---------- */
+
+/* KPI card: label (icon tile) on top -> big value -> status badge at the bottom.
+   `display: contents` lets value + badge join the card's own flex column, so
+   everything lines up across all six cards and "2 Days" never wraps. */
+.workspace-ambient-shell .kpi-metric-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 124px;
+  padding: 16px 20px 16px;
+}
+
+.workspace-ambient-shell .kpi-header-row {
+  display: contents;
+}
+
+.workspace-ambient-shell .kpi-label-row {
+  order: -1;
+  gap: 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-muted);
+}
+
+.workspace-ambient-shell .kpi-icon {
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.workspace-ambient-shell .kpi-value {
+  order: 1;
+  font-size: clamp(1.55rem, 1.9vw, 2rem);
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.workspace-ambient-shell .kpi-trend-badge {
+  order: 2;
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.workspace-ambient-shell .kpi-trend-neutral::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+
+/* Each KPI gets its own accent so the strip reads at a glance */
+.workspace-ambient-shell .kpi-metric-card:nth-child(2) .kpi-icon {
+  background: var(--color-royal-soft);
+  color: var(--color-royal);
+}
+
+.workspace-ambient-shell .kpi-metric-card:nth-child(3) .kpi-icon {
+  background: var(--color-orchid-soft);
+  color: var(--color-orchid);
+}
+
+.workspace-ambient-shell .kpi-metric-card:nth-child(4) .kpi-icon {
+  background: var(--color-peach-soft);
+  color: var(--color-peach);
+}
+
+.workspace-ambient-shell .kpi-metric-card:nth-child(5) .kpi-icon {
+  background: var(--color-cyan-soft);
+  color: var(--color-cyan);
+}
+
+.workspace-ambient-shell .kpi-metric-card:nth-child(6) .kpi-icon {
+  background: var(--color-emerald-soft);
+  color: var(--color-emerald);
+}
+
+/* Pills/tracks used a near-transparent white that vanished on white panels */
+.workspace-ambient-shell .chart-pill-dropdown,
+.workspace-ambient-shell .queue-filter-pill,
+.workspace-ambient-shell .feed-segmented-tabs,
+.workspace-ambient-shell .feed-counter-pill {
+  background: var(--dash-panel-soft);
+  border-color: var(--dash-line);
+}
+
+.workspace-ambient-shell .topic-stage-track {
+  height: 8px;
+  background: var(--dash-line);
+}
+
+.workspace-ambient-shell .topic-stages-list {
+  gap: 14px;
+}
+
+.workspace-ambient-shell .sparkline-svg {
+  height: 130px;
+}
+
+.workspace-ambient-shell .sparkline-dot {
+  stroke: var(--dash-panel);
+}
+
+/* Reading queue rows */
+.workspace-ambient-shell .queue-item-row {
+  background: var(--dash-panel-soft);
+  border: 1px solid var(--dash-line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 200ms ease;
+}
+
+.workspace-ambient-shell .queue-item-row:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+/* Right-hand widgets: same divided header as the chart panels */
+.workspace-ambient-shell .utility-widget {
+  padding: 0 20px 18px;
+}
+
+.workspace-ambient-shell .calendar-widget-header,
+.workspace-ambient-shell .activity-widget-header {
+  margin: 0 -20px 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--dash-line);
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.workspace-ambient-shell .activity-item-card {
+  background: var(--dash-panel-soft);
+  border: 1px solid var(--dash-line);
+  border-radius: 10px;
+}
+
+.workspace-ambient-shell .calendar-footer-legend {
+  border-top: 1px solid var(--dash-line);
+}
+
+/* Search bar + filter chips match the flat panel language */
+.workspace-ambient-shell .dashboard-search-inner {
+  background: var(--dash-panel);
+  border: 1px solid var(--dash-line);
+  border-radius: var(--dash-radius);
+  box-shadow: none;
+  padding: 8px 10px 8px 16px;
+}
+
+.workspace-ambient-shell .dashboard-search-inner:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.workspace-ambient-shell .topic-tag-chip {
+  background: var(--dash-panel);
+  border-color: var(--dash-line);
+}
+
+.workspace-ambient-shell .topic-tag-chip:hover {
+  transform: none;
+}
+
+.workspace-ambient-shell .topic-tag-active {
+  background: var(--pill-active-bg);
+  border-color: var(--color-accent);
+}
+
+/* AI banner: flat like the rest */
+.workspace-ambient-shell .ai-feed-banner {
+  border-radius: var(--dash-radius);
+  box-shadow: none;
+  border-width: 1px;
+  margin-bottom: var(--dash-gap);
+}
+
+/* Paper card internals */
+.workspace-ambient-shell .refined-paper-card {
+  padding: 20px 22px;
+}
+
+.workspace-ambient-shell .card-footer-metrics {
+  border-top: 1px solid var(--dash-line);
+}
+
+.workspace-ambient-shell .topics-filter-strip {
+  margin-bottom: var(--dash-gap);
+}
+
+.workspace-ambient-shell .feed-controls-header {
+  margin-bottom: var(--dash-gap);
+}
+
+@media (max-width: 640px) {
+  .workspace-ambient-shell .kpi-metric-card {
+    min-height: 0;
+    padding: 14px 16px;
+  }
+
+  .workspace-ambient-shell .utility-widget {
+    padding: 0 16px 16px;
+  }
+
+  .workspace-ambient-shell .calendar-widget-header,
+  .workspace-ambient-shell .activity-widget-header {
+    margin: 0 -16px 12px;
+    padding: 12px 16px;
+  }
+
+  .workspace-ambient-shell .refined-paper-card {
+    padding: 16px;
+  }
+}
+
+/* ---------- 7d. KPI cards v2: separate rounded cards, accent glow, motion ---------- */
+@keyframes rn-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rn-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes rn-value-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rn-flame {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.12) rotate(-6deg); }
+  70% { transform: scale(1.05) rotate(5deg); }
+}
+
+@keyframes rn-twinkle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.14); opacity: 0.8; }
+}
+
+@keyframes rn-live-dot {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
+  100% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+
+/* Back to individual rounded cards with breathing room */
+.workspace-ambient-shell .kpi-metrics-ribbon {
+  gap: 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  animation: none; /* each card animates on its own now */
+}
+
+.workspace-ambient-shell .kpi-metric-card {
+  --kpi: var(--color-accent);
+  --kpi-soft: var(--color-accent-soft);
+  position: relative;
+  overflow: hidden;
+  background: var(--dash-panel);
+  border: 1px solid var(--dash-line);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 10px 26px -16px rgba(15, 23, 42, 0.14);
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 280ms ease,
+    border-color 200ms ease;
+  animation: rn-pop-in 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.workspace-ambient-shell .kpi-metric-card:nth-child(1) { animation-delay: 0ms; }
+.workspace-ambient-shell .kpi-metric-card:nth-child(2) { animation-delay: 70ms; --kpi: var(--color-royal); --kpi-soft: var(--color-royal-soft); }
+.workspace-ambient-shell .kpi-metric-card:nth-child(3) { animation-delay: 140ms; --kpi: var(--color-orchid); --kpi-soft: var(--color-orchid-soft); }
+.workspace-ambient-shell .kpi-metric-card:nth-child(4) { animation-delay: 210ms; --kpi: var(--color-peach); --kpi-soft: var(--color-peach-soft); }
+.workspace-ambient-shell .kpi-metric-card:nth-child(5) { animation-delay: 280ms; --kpi: var(--color-cyan); --kpi-soft: var(--color-cyan-soft); }
+.workspace-ambient-shell .kpi-metric-card:nth-child(6) { animation-delay: 350ms; --kpi: var(--color-emerald); --kpi-soft: var(--color-emerald-soft); }
+
+/* Accent bar along the top edge - grows in on load */
+.workspace-ambient-shell .kpi-metric-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--kpi), transparent 85%);
+  transform-origin: left;
+  animation: rn-bar-grow 800ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: inherit;
+}
+
+/* Soft colour glow in the corner - swells on hover */
+.workspace-ambient-shell .kpi-metric-card::after {
+  content: "";
+  position: absolute;
+  top: -46px;
+  right: -36px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: var(--kpi-soft);
+  pointer-events: none;
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.workspace-ambient-shell .kpi-label-row,
+.workspace-ambient-shell .kpi-value,
+.workspace-ambient-shell .kpi-trend-badge {
+  position: relative;
+  z-index: 1;
+}
+
+.workspace-ambient-shell .kpi-icon {
+  background: var(--kpi-soft);
+  color: var(--kpi);
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.workspace-ambient-shell .kpi-value {
+  animation: rn-value-in 600ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: 220ms;
+  transition: color 200ms ease;
+}
+
+/* Hover: lift + magnify, glow swells, icon pops, number takes the card colour */
+@media (hover: hover) and (pointer: fine) {
+  .workspace-ambient-shell .kpi-metric-card:hover {
+    transform: translateY(-5px) scale(1.03);
+    background: var(--dash-panel);
+    border-color: var(--kpi);
+    box-shadow:
+      0 20px 40px -14px rgba(15, 23, 42, 0.22),
+      0 8px 18px -10px var(--kpi);
+    z-index: 4;
+  }
+
+  .workspace-ambient-shell .kpi-metric-card:hover::after {
+    transform: scale(1.6);
+  }
+
+  .workspace-ambient-shell .kpi-metric-card:hover .kpi-icon {
+    transform: scale(1.15) rotate(-8deg);
+  }
+
+  .workspace-ambient-shell .kpi-metric-card:hover .kpi-value {
+    color: var(--kpi);
+  }
+}
+
+/* Ambient life: flame flickers, sparkle twinkles, live dot pulses */
+.workspace-ambient-shell .kpi-metric-card:nth-child(4) .kpi-icon {
+  animation: rn-flame 2.6s ease-in-out infinite;
+}
+
+.workspace-ambient-shell .kpi-metric-card:nth-child(3) .kpi-icon {
+  animation: rn-twinkle 2.8s ease-in-out infinite;
+}
+
+.workspace-ambient-shell .kpi-trend-neutral::before {
+  animation: rn-live-dot 1.8s ease-out infinite;
+}
+
+/* Badges: pill takes each card's own tint instead of one flat green */
+.workspace-ambient-shell .kpi-trend-badge {
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
+  background: var(--kpi-soft);
+  color: var(--kpi);
+  color: color-mix(in srgb, var(--kpi) 72%, #0b0c18);
+}
+
+[data-theme="dark"] .workspace-ambient-shell .kpi-trend-badge {
+  color: var(--kpi);
+}
+
+/* While hovering, let the icon's hover pop win over its idle animation */
+@media (hover: hover) and (pointer: fine) {
+  .workspace-ambient-shell .kpi-metric-card:nth-child(3):hover .kpi-icon,
+  .workspace-ambient-shell .kpi-metric-card:nth-child(4):hover .kpi-icon {
+    animation: none;
+  }
+}
+
+/* ---------- 7e. KPI colour scheme: one purple family (matches the "Archie," gradient) ---------- */
+.workspace-ambient-shell .kpi-metrics-ribbon .kpi-metric-card {
+  --kpi: var(--color-accent);
+  --kpi-soft: var(--color-accent-soft);
+  --kpi-gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 55%, #db2777 100%);
+}
+
+/* Top bar uses the same purple -> pink gradient as the greeting name */
+.workspace-ambient-shell .kpi-metric-card::before {
+  background: linear-gradient(90deg, #7c3aed 0%, #a855f7 50%, #db2777 100%);
+}
+
+/* Corner glow: soft purple blending into pink */
+.workspace-ambient-shell .kpi-metric-card::after {
+  background: radial-gradient(circle at 35% 40%, rgba(124, 58, 237, 0.16), rgba(219, 39, 119, 0.07) 70%);
+}
+
+[data-theme="dark"] .workspace-ambient-shell .kpi-metric-card::after {
+  background: radial-gradient(circle at 35% 40%, rgba(168, 85, 247, 0.26), rgba(236, 72, 153, 0.1) 70%);
+}
+
+/* Icon tile: solid purple gradient with a white glyph */
+.workspace-ambient-shell .kpi-metrics-ribbon .kpi-metric-card .kpi-icon {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px -3px rgba(124, 58, 237, 0.55);
+}
+
+/* Badges: one consistent purple tint */
+.workspace-ambient-shell .kpi-metrics-ribbon .kpi-metric-card .kpi-trend-badge {
+  background: rgba(124, 58, 237, 0.1);
+  color: #6d28d9;
+}
+
+[data-theme="dark"] .workspace-ambient-shell .kpi-metrics-ribbon .kpi-metric-card .kpi-trend-badge {
+  background: rgba(168, 85, 247, 0.18);
+  color: #d8b4fe;
+}
+
+/* Live dot stays green: it signals "online", not brand colour */
+
+/* Hover: purple border + purple-tinted lift shadow, number turns purple */
+@media (hover: hover) and (pointer: fine) {
+  .workspace-ambient-shell .kpi-metrics-ribbon .kpi-metric-card:hover {
+    border-color: #8b5cf6;
+    box-shadow:
+      0 20px 40px -14px rgba(76, 29, 149, 0.28),
+      0 8px 18px -10px rgba(124, 58, 237, 0.55);
+  }
+}
+
+/* The flame keeps its flicker, but sits on the purple tile like the others */
+
+/* ==========================================================================
+   9. SIDEBAR LAYOUT + GRADIENT HERO  (dashboard redesign)
+   ========================================================================== */
+@keyframes rn-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-24px, 14px) scale(1.12); }
+}
+
+@keyframes rn-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Frame becomes [sidebar | main column] */
+.workspace-ambient-shell .workspace-canvas-frame {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.workspace-ambient-shell .workspace-main-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(900px 420px at 100% 0%, rgba(168, 85, 247, 0.09), transparent 62%);
+}
+
+/* ---------- Sidebar ---------- */
+.workspace-ambient-shell .workspace-sidebar {
+  flex: 0 0 252px;
+  width: 252px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px 16px;
+  overflow-y: auto;
+  z-index: 30;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.18), transparent 46%),
+    radial-gradient(circle at 100% 100%, rgba(219, 39, 119, 0.28), transparent 52%),
+    linear-gradient(180deg, #7c3aed 0%, #6d28d9 55%, #5b21b6 100%);
+  box-shadow: 6px 0 34px -14px rgba(76, 29, 149, 0.55);
+  scrollbar-width: none;
+}
+
+.workspace-ambient-shell .workspace-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+[data-theme="dark"] .workspace-ambient-shell .workspace-sidebar {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.22), transparent 46%),
+    radial-gradient(circle at 100% 100%, rgba(219, 39, 119, 0.16), transparent 52%),
+    linear-gradient(180deg, #1f1140 0%, #170d2e 60%, #120a26 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.workspace-ambient-shell .sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 4px 8px 4px;
+  text-decoration: none;
+  color: #ffffff;
+}
+
+.workspace-ambient-shell .sidebar-brand-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #6d28d9;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.45);
+}
+
+.workspace-ambient-shell .sidebar-brand-text {
+  font-size: 1.14rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.workspace-ambient-shell .sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 28px;
+}
+
+.workspace-ambient-shell .sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+.workspace-ambient-shell .sidebar-link svg {
+  flex-shrink: 0;
+}
+
+.workspace-ambient-shell .sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  transform: translateX(4px);
+}
+
+.workspace-ambient-shell .sidebar-link-active,
+.workspace-ambient-shell .sidebar-link-active:hover {
+  background: #ffffff;
+  color: #6d28d9;
+  font-weight: 750;
+  transform: none;
+  box-shadow: 0 10px 22px -10px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .workspace-ambient-shell .sidebar-link-active,
+[data-theme="dark"] .workspace-ambient-shell .sidebar-link-active:hover {
+  background: rgba(168, 85, 247, 0.24);
+  color: #f3e8ff;
+  box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.4);
+}
+
+.workspace-ambient-shell .sidebar-link-badge {
+  margin-left: auto;
+  background: #db2777;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.workspace-ambient-shell .sidebar-link-active .sidebar-link-badge {
+  background: rgba(124, 58, 237, 0.14);
+  color: #6d28d9;
+}
+
+/* Promo card (like the "Upgrade" card in the reference) */
+.workspace-ambient-shell .sidebar-promo {
+  margin-top: auto;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.workspace-ambient-shell .sidebar-promo-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  color: #7c3aed;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.4);
+  animation: rn-float 3.2s ease-in-out infinite;
+}
+
+.workspace-ambient-shell .sidebar-promo-title {
+  margin: 0 0 4px;
+  font-size: 0.92rem;
+  font-weight: 750;
+  color: #ffffff;
+}
+
+.workspace-ambient-shell .sidebar-promo-text {
+  margin: 0 0 14px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.workspace-ambient-shell .sidebar-promo-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #6d28d9;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.workspace-ambient-shell .sidebar-promo-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.5);
+}
+
+.workspace-ambient-shell .sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.workspace-ambient-shell .sidebar-logout:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+/* ---------- Top bar: glass, with search leading (brand + nav live in the sidebar) ---------- */
+.workspace-ambient-shell .workspace-top-bar {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-theme="dark"] .workspace-ambient-shell .workspace-top-bar {
+  background: rgba(18, 19, 37, 0.82);
+}
+
+@media (min-width: 901px) {
+  .workspace-ambient-shell .workspace-bar-left {
+    display: none;
+  }
+
+  .workspace-ambient-shell .workspace-quick-search-form {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 560px;
+  }
+}
+
+/* ---------- Greeting: gradient hero banner ---------- */
+.workspace-ambient-shell .dashboard-greeting-banner {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--dash-gap);
+  padding: 30px 34px;
+  border: 0;
+  border-radius: 20px;
+  color: #ffffff;
+  background: linear-gradient(120deg, #6d28d9 0%, #7c3aed 40%, #a855f7 72%, #db2777 118%);
+  box-shadow: 0 22px 44px -26px rgba(124, 58, 237, 0.8);
+  animation: rn-fade-up 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+[data-theme="dark"] .workspace-ambient-shell .dashboard-greeting-banner {
+  background: linear-gradient(120deg, #3b1a78 0%, #5b21b6 45%, #7e22ce 80%, #be185d 125%);
+}
+
+.workspace-ambient-shell .dashboard-greeting-banner::before,
+.workspace-ambient-shell .dashboard-greeting-banner::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.workspace-ambient-shell .dashboard-greeting-banner::before {
+  width: 300px;
+  height: 300px;
+  top: -110px;
+  right: -60px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.26), transparent 68%);
+  animation: rn-drift 9s ease-in-out infinite alternate;
+}
+
+.workspace-ambient-shell .dashboard-greeting-banner::after {
+  width: 190px;
+  height: 190px;
+  bottom: -100px;
+  right: 22%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 70%);
+  animation: rn-drift 12s ease-in-out infinite alternate-reverse;
+}
+
+.workspace-ambient-shell .greeting-main-row {
+  position: relative;
+  z-index: 1;
+}
+
+.workspace-ambient-shell .greeting-headline {
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.workspace-ambient-shell .greeting-name {
+  background: linear-gradient(90deg, #ffffff 0%, #fbcfe8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.workspace-ambient-shell .greeting-subtext {
+  color: rgba(255, 255, 255, 0.86);
+  max-width: 62ch;
+}
+
+/* ---------- Small screens: sidebar folds away, top bar brings brand + nav back ---------- */
+@media (max-width: 900px) {
+  .workspace-ambient-shell .workspace-sidebar {
+    display: none;
+  }
+
+  .workspace-ambient-shell .dashboard-greeting-banner {
+    padding: 22px 20px;
+    border-radius: 16px;
+  }
+}
+
+/* ---------- 10. Reading Queue: working tabs, priority star, readable rows ---------- */
+.workspace-ambient-shell button.queue-pill-opt {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.workspace-ambient-shell button.queue-pill-opt:hover:not(.queue-pill-active) {
+  color: var(--color-accent);
+}
+
+.workspace-ambient-shell button.queue-pill-opt:focus-visible,
+.workspace-ambient-shell .queue-star-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.workspace-ambient-shell .queue-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.workspace-ambient-shell .queue-star-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-subtle);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.workspace-ambient-shell .queue-star-btn:hover {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  transform: scale(1.15);
+}
+
+.workspace-ambient-shell .queue-star-active {
+  color: #f59e0b;
+}
+
+.workspace-ambient-shell .queue-star-btn:active {
+  transform: scale(0.88);
+}
+
+/* Titles were cut to "Retrieval-Augment..." - let them wrap to two lines */
+.workspace-ambient-shell .queue-item-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.workspace-ambient-shell .queue-item-venue {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-ambient-shell .queue-empty {
+  margin: 0;
+  padding: 22px 14px;
+  text-align: center;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--color-muted);
+  border: 1px dashed var(--dash-line);
+  border-radius: 10px;
+  background: var(--dash-panel-soft);
+}
+
+/* ---------- 11. NestAI chatbot: voice input (mic) ---------- */
+@keyframes rn-mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.55); }
+  100% { box-shadow: 0 0 0 12px rgba(244, 63, 94, 0); }
+}
+
+.nestai-mic-btn {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.nestai-mic-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  transform: scale(1.06);
+}
+
+.nestai-mic-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nestai-mic-btn.nestai-mic-listening {
+  background: linear-gradient(135deg, #f43f5e, #db2777);
+  color: #ffffff;
+  animation: rn-mic-pulse 1.2s ease-out infinite;
+}
+
+.nestai-voice-error {
+  margin-bottom: 8px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: #fda4af;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+/* ---------- 8. Small screens: keep it a clean edge-to-edge app ---------- */
+@media (max-width: 1100px) {
+  .workspace-ambient-shell .workspace-top-bar {
+    height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-ambient-shell .natural-dashboard {
+    padding-top: 16px;
+  }
+
+  .workspace-ambient-shell .kpi-metric-card {
+    padding: 14px 16px;
+  }
+
+  .workspace-ambient-shell .chart-card {
+    padding: 0 16px 16px;
+  }
+
+  .workspace-ambient-shell .chart-card-header {
+    margin: 0 -16px 14px;
+    padding: 12px 16px;
+  }
+}

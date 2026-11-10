@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  Star,
   Tag,
   TrendingDown,
   TrendingUp,
@@ -89,6 +90,40 @@ export default function HomePage() {
   });
   const [statusMessage, setStatusMessage] = useState("");
   const [calendarMonth, setCalendarMonth] = useState("October 2026");
+
+  // Reading Queue: All / Priority filter + user-marked priority papers (persisted)
+  const [queueFilter, setQueueFilter] = useState("all");
+  const [priorityIds, setPriorityIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem("researchnest_priority_ids");
+      return stored ? new Set(JSON.parse(stored).map(String)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  function togglePriority(paper, e) {
+    e?.stopPropagation();
+    const idStr = String(paper.id);
+    const marking = !priorityIds.has(idStr);
+    setPriorityIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(idStr)) next.delete(idStr);
+      else next.add(idStr);
+      try {
+        localStorage.setItem("researchnest_priority_ids", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+    const shortTitle =
+      paper.title?.length > 40 ? `${paper.title.slice(0, 40)}...` : paper.title;
+    activityService.logActivity(
+      marking ? "Marked paper as priority" : "Removed paper from priority",
+      shortTitle,
+      "save",
+      marking ? "purple" : "peach"
+    );
+  }
   const [activeModalPaper, setActiveModalPaper] = useState(null);
   const [modalInitialTab, setModalInitialTab] = useState("overview");
 
@@ -508,18 +543,34 @@ export default function HomePage() {
   const dynamicReadingQueue = useMemo(() => {
     const pool = catalogPapers.length > 0 ? catalogPapers : activePapersSource;
     const saved = pool.filter((p) => savedPaperIds.has(String(p.id)) || savedPaperIds.has(Number(p.id)));
-    const queuePapers = saved.length > 0 ? saved.slice(0, 3) : pool.slice(0, 3);
+    const hasSaved = saved.length > 0;
+    const queuePapers = hasSaved ? saved : pool.slice(0, 3);
 
-    return queuePapers.map((p, idx) => ({
-      id: `rq-${p.id}`,
-      paperId: p.id,
-      title: p.title,
-      venue: `${p.venue} · ${p.authors ? p.authors.split(",")[0] + " et al." : "Landmark Publication"}`,
-      daysTag: idx === 0 ? "Priority Review" : idx === 1 ? "In Stack" : "Annotated",
-      tagType: idx === 0 ? "green" : idx === 1 ? "purple" : "blue",
-      paper: p,
-    }));
-  }, [catalogPapers, activePapersSource, savedPaperIds]);
+    return queuePapers.map((p) => {
+      const isPriority = priorityIds.has(String(p.id));
+      return {
+        id: `rq-${p.id}`,
+        paperId: p.id,
+        title: p.title,
+        venue: `${p.venue} · ${p.authors ? p.authors.split(",")[0] + " et al." : "Landmark Publication"}`,
+        isPriority,
+        daysTag: isPriority ? "Priority Review" : hasSaved ? "In Stack" : "Suggested",
+        tagType: isPriority ? "green" : hasSaved ? "purple" : "blue",
+        paper: p,
+      };
+    });
+  }, [catalogPapers, activePapersSource, savedPaperIds, priorityIds]);
+
+  // What the queue card actually shows for the selected All / Priority tab
+  const visibleReadingQueue = useMemo(() => {
+    const list =
+      queueFilter === "priority"
+        ? dynamicReadingQueue.filter((item) => item.isPriority)
+        : dynamicReadingQueue;
+    return list.slice(0, 4);
+  }, [dynamicReadingQueue, queueFilter]);
+
+  const priorityCount = dynamicReadingQueue.filter((item) => item.isPriority).length;
 
   // Real dynamic monthly reading trend points
   const monthlyReadTrends = useMemo(() => {
@@ -761,14 +812,37 @@ export default function HomePage() {
               <h2 className="chart-card-title">Reading Queue</h2>
               <p className="chart-card-sub">Saved papers in your review stack</p>
             </div>
-            <div className="queue-filter-pill">
-              <span className="queue-pill-opt queue-pill-active">All</span>
-              <span className="queue-pill-opt">Priority</span>
+            <div className="queue-filter-pill" role="tablist" aria-label="Reading queue filter">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={queueFilter === "all"}
+                className={`queue-pill-opt ${queueFilter === "all" ? "queue-pill-active" : ""}`}
+                onClick={() => setQueueFilter("all")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={queueFilter === "priority"}
+                className={`queue-pill-opt ${queueFilter === "priority" ? "queue-pill-active" : ""}`}
+                onClick={() => setQueueFilter("priority")}
+              >
+                Priority{priorityCount > 0 ? ` (${priorityCount})` : ""}
+              </button>
             </div>
           </div>
 
           <div className="reading-queue-list">
-            {dynamicReadingQueue.map((item) => (
+            {visibleReadingQueue.length === 0 && (
+              <p className="queue-empty">
+                {queueFilter === "priority"
+                  ? "No priority papers yet. Tap the star on a paper to add it here."
+                  : "Your queue is empty. Save a paper to start your reading stack."}
+              </p>
+            )}
+            {visibleReadingQueue.map((item) => (
               <div
                 key={item.id}
                 className="queue-item-row"
@@ -783,6 +857,16 @@ export default function HomePage() {
                   <p className="queue-item-venue">{item.venue}</p>
                 </div>
                 <div className="queue-item-right">
+                  <button
+                    type="button"
+                    className={`queue-star-btn ${item.isPriority ? "queue-star-active" : ""}`}
+                    onClick={(e) => togglePriority(item.paper, e)}
+                    aria-pressed={item.isPriority}
+                    aria-label={item.isPriority ? "Remove from priority" : "Mark as priority"}
+                    title={item.isPriority ? "Remove from priority" : "Mark as priority"}
+                  >
+                    <Star size={15} fill={item.isPriority ? "currentColor" : "none"} aria-hidden="true" />
+                  </button>
                   <span className={`queue-days-badge queue-badge-${item.tagType}`}>
                     {item.daysTag}
                   </span>
